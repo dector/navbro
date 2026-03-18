@@ -1,12 +1,18 @@
 (() => {
   const STATE = {
     mode: "nav", // 'nav' | 'pass'
+    pendingSequence: null,
+    pendingTimerId: null,
+    debugEntries: [],
   };
 
   const BADGE_ID = "navbro-mode-badge";
+  const DEBUG_ID = "navbro-debug-panel";
   const KEY_CONFIG = window.NAVBRO_KEY_CONFIG || {
     modeToggle: { key: "Insert", ctrl: true, alt: false, shift: false, meta: false },
     scroll: { step: 120, fastStep: 360, smoothScroll: true },
+    keySequence: { timeoutMs: 5000 },
+    debug: { maxEntries: 10 },
   };
 
   if (document.getElementById(BADGE_ID)) return;
@@ -27,17 +33,57 @@
   badge.style.opacity = "0.9";
   badge.style.pointerEvents = "none";
 
-  const render = () => {
+  const debugPanel = document.createElement("div");
+  debugPanel.id = DEBUG_ID;
+  debugPanel.style.position = "fixed";
+  debugPanel.style.right = "8px";
+  debugPanel.style.bottom = "8px";
+  debugPanel.style.zIndex = "2147483647";
+  debugPanel.style.minWidth = "260px";
+  debugPanel.style.maxWidth = "420px";
+  debugPanel.style.maxHeight = "220px";
+  debugPanel.style.overflow = "hidden";
+  debugPanel.style.padding = "8px";
+  debugPanel.style.borderRadius = "8px";
+  debugPanel.style.background = "rgba(17, 17, 17, 0.92)";
+  debugPanel.style.color = "#f5f5f5";
+  debugPanel.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+  debugPanel.style.fontSize = "11px";
+  debugPanel.style.lineHeight = "1.35";
+  debugPanel.style.pointerEvents = "none";
+  debugPanel.style.whiteSpace = "pre-wrap";
+
+  const renderModeBadge = () => {
+    const isWaitingNext = STATE.pendingSequence !== null;
     badge.textContent = STATE.mode;
+    badge.style.background = isWaitingNext ? "#f2c48d" : "#111";
+    badge.style.color = isWaitingNext ? "#1f1f1f" : "#fff";
   };
 
-  const mountBadge = () => {
-    if (document.body && !document.getElementById(BADGE_ID)) {
-      render();
+  const renderDebugPanel = () => {
+    debugPanel.textContent = STATE.debugEntries.join("\n");
+  };
+
+  const pushDebug = (entry) => {
+    STATE.debugEntries.unshift(entry);
+    STATE.debugEntries = STATE.debugEntries.slice(0, KEY_CONFIG.debug.maxEntries);
+    renderDebugPanel();
+  };
+
+  const mountUi = () => {
+    if (!document.body) return false;
+
+    if (!document.getElementById(BADGE_ID)) {
+      renderModeBadge();
       document.body.appendChild(badge);
-      return true;
     }
-    return false;
+
+    if (!document.getElementById(DEBUG_ID)) {
+      renderDebugPanel();
+      document.body.appendChild(debugPanel);
+    }
+
+    return true;
   };
 
   const matchesCombo = (event, combo) => {
@@ -50,9 +96,39 @@
     );
   };
 
+  const isModifierKey = (key) => {
+    return key === "Shift" || key === "Control" || key === "Alt" || key === "Meta";
+  };
+
+  const clearPendingTimer = () => {
+    if (STATE.pendingTimerId !== null) {
+      clearTimeout(STATE.pendingTimerId);
+      STATE.pendingTimerId = null;
+    }
+  };
+
+  const resetPendingSequence = () => {
+    clearPendingTimer();
+    STATE.pendingSequence = null;
+    renderModeBadge();
+  };
+
+  const schedulePendingTimeout = () => {
+    clearPendingTimer();
+    STATE.pendingTimerId = window.setTimeout(() => {
+      if (STATE.pendingSequence === "g") {
+        const timeoutSec = KEY_CONFIG.keySequence.timeoutMs / 1000;
+        pushDebug(`<timeout ${timeoutSec}sec> -> none, reset`);
+        resetPendingSequence();
+      }
+    }, KEY_CONFIG.keySequence.timeoutMs);
+  };
+
   const toggleMode = () => {
     STATE.mode = STATE.mode === "nav" ? "pass" : "nav";
-    render();
+    resetPendingSequence();
+    renderModeBadge();
+    pushDebug(`mode -> ${STATE.mode}`);
   };
 
   const scrollByY = (deltaY) => {
@@ -60,28 +136,81 @@
     window.scrollBy({ top: deltaY, left: 0, behavior });
   };
 
+  const scrollToTop = () => {
+    const behavior = KEY_CONFIG.scroll.smoothScroll ? "auto" : "instant";
+    window.scrollTo({ top: 0, left: 0, behavior });
+  };
+
+  const scrollToBottom = () => {
+    const behavior = KEY_CONFIG.scroll.smoothScroll ? "auto" : "instant";
+    const scrollingEl = document.scrollingElement || document.documentElement || document.body;
+    const maxY = Math.max((scrollingEl?.scrollHeight || 0) - window.innerHeight, 0);
+    window.scrollTo({ top: maxY, left: 0, behavior });
+  };
+
   const handleNavInput = (event) => {
     if (event.ctrlKey || event.altKey || event.metaKey) {
       return false;
     }
 
+    if (STATE.pendingSequence === "g") {
+      if (isModifierKey(event.key)) {
+        pushDebug(`${event.key.toLowerCase()}(down)`);
+        return false;
+      }
+
+      if (event.key === "g") {
+        scrollToTop();
+        pushDebug("g -> scroll_top, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      pushDebug(`${event.key} -> none, reset`);
+      resetPendingSequence();
+      return true;
+    }
+
+    if (event.key === "g") {
+      STATE.pendingSequence = "g";
+      renderModeBadge();
+      schedulePendingTimeout();
+      pushDebug("g -> waiting_next");
+      return true;
+    }
+
+    if (event.key === "G") {
+      scrollToBottom();
+      pushDebug("G -> scroll_bottom");
+      return true;
+    }
+
     if (event.key === "j") {
       scrollByY(KEY_CONFIG.scroll.step);
+      pushDebug("j -> scroll_down");
       return true;
     }
 
     if (event.key === "k") {
       scrollByY(-KEY_CONFIG.scroll.step);
+      pushDebug("k -> scroll_up");
       return true;
     }
 
     if (event.key === "J") {
       scrollByY(KEY_CONFIG.scroll.fastStep);
+      pushDebug("J -> scroll_down_fast");
       return true;
     }
 
     if (event.key === "K") {
       scrollByY(-KEY_CONFIG.scroll.fastStep);
+      pushDebug("K -> scroll_up_fast");
+      return true;
+    }
+
+    if (event.key.length === 1) {
+      pushDebug(`${event.key} -> none`);
       return true;
     }
 
@@ -107,11 +236,22 @@
     }
   };
 
-  window.addEventListener("keydown", onKeyDown, true);
+  const onKeyUp = (event) => {
+    if (STATE.mode !== "nav") {
+      return;
+    }
 
-  if (!mountBadge()) {
+    if (STATE.pendingSequence === "g" && isModifierKey(event.key)) {
+      pushDebug(`${event.key.toLowerCase()}(up)`);
+    }
+  };
+
+  window.addEventListener("keydown", onKeyDown, true);
+  window.addEventListener("keyup", onKeyUp, true);
+
+  if (!mountUi()) {
     const observer = new MutationObserver(() => {
-      if (mountBadge()) observer.disconnect();
+      if (mountUi()) observer.disconnect();
     });
     observer.observe(document.documentElement || document, {
       childList: true,

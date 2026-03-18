@@ -13,6 +13,12 @@
       fastStep: 360,
       smoothScroll: true,
     }),
+    keySequence: Object.freeze({
+      timeoutMs: 5000,
+    }),
+    debug: Object.freeze({
+      maxEntries: 10,
+    }),
   });
 
   window.NAVBRO_KEY_CONFIG = KEY_CONFIG;
