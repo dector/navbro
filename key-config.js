@@ -18,6 +18,17 @@
     keySequence: Object.freeze({
       timeoutMs: 5000,
     }),
+    zoom: Object.freeze({
+      step: 0.1,
+      strongStep: 0.2,
+      min: 0.3,
+      max: 3,
+      presets: Object.freeze({
+        min: 0.5,
+        max: 2,
+        reset: 1,
+      }),
+    }),
     debug: Object.freeze({
       maxEntries: 10,
     }),

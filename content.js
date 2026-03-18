@@ -23,6 +23,13 @@
       smoothScroll: true,
     },
     keySequence: { timeoutMs: 5000 },
+    zoom: {
+      step: 0.1,
+      strongStep: 0.2,
+      min: 0.3,
+      max: 3,
+      presets: { min: 0.5, max: 2, reset: 1 },
+    },
     debug: { maxEntries: 10 },
     hints: {
       alphabetMode: "both",
@@ -215,6 +222,23 @@
     } catch {
       pushDebug("runtime_send -> failed");
     }
+  };
+
+  const requestTabZoom = (action) => {
+    const zoomConfig = KEY_CONFIG.zoom || {};
+    sendRuntimeMessage({
+      type: "navbro.tab.zoom",
+      action,
+      step: Number(zoomConfig.step) || 0.1,
+      strongStep: Number(zoomConfig.strongStep) || 0.2,
+      min: Number(zoomConfig.min) || 0.3,
+      max: Number(zoomConfig.max) || 3,
+      presets: {
+        min: Number(zoomConfig.presets?.min) || 0.5,
+        max: Number(zoomConfig.presets?.max) || 2,
+        reset: Number(zoomConfig.presets?.reset) || 1,
+      },
+    });
   };
 
   const navigateToUrlParent = () => {
@@ -804,6 +828,66 @@
       return true;
     }
 
+    if (STATE.pendingSequence === "z") {
+      if (isModifierKey(key)) {
+        pushDebug(`${key.toLowerCase()}(down)`);
+        return false;
+      }
+
+      if (key === "z") {
+        requestTabZoom("reset");
+        pushDebug("zz -> zoom_reset, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "i") {
+        requestTabZoom("in");
+        pushDebug("zi -> zoom_in, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "d") {
+        requestTabZoom("out");
+        pushDebug("zd -> zoom_out, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "I") {
+        requestTabZoom("in_strong");
+        pushDebug("zI -> zoom_in_strong, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "D") {
+        requestTabZoom("out_strong");
+        pushDebug("zD -> zoom_out_strong, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "m") {
+        requestTabZoom("preset_min");
+        pushDebug("zm -> zoom_preset_min, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "M") {
+        requestTabZoom("preset_max");
+        pushDebug("zM -> zoom_preset_max, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      pushDebug(`${key} -> none, reset`);
+      resetPendingSequence();
+      return true;
+    }
+
     if (handleTabNavigationHotkeys(event)) {
       return true;
     }
@@ -889,6 +973,14 @@
       renderModeBadge();
       schedulePendingTimeout();
       pushDebug("g -> waiting_next");
+      return true;
+    }
+
+    if (key === "z") {
+      STATE.pendingSequence = "z";
+      renderModeBadge();
+      schedulePendingTimeout();
+      pushDebug("z -> waiting_next");
       return true;
     }
 

@@ -67,6 +67,47 @@ const stopActiveTabLoading = async () => {
   }
 };
 
+const getActiveTabId = async () => {
+  const tabs = await runtime.tabs.query({ currentWindow: true, active: true });
+  const activeTab = tabs[0];
+  return activeTab?.id ?? null;
+};
+
+const clamp = (value, min, max) => {
+  return Math.min(Math.max(value, min), max);
+};
+
+const applyActiveTabZoom = async (payload = {}) => {
+  if (typeof runtime.tabs.getZoom !== "function" || typeof runtime.tabs.setZoom !== "function") {
+    return;
+  }
+
+  const tabId = await getActiveTabId();
+  if (!tabId) return;
+
+  const min = Number(payload.min) || 0.3;
+  const max = Number(payload.max) || 3;
+  const step = Number(payload.step) || 0.1;
+  const strongStep = Number(payload.strongStep) || 0.2;
+  const presetMin = Number(payload.presets?.min) || 0.5;
+  const presetMax = Number(payload.presets?.max) || 2;
+  const presetReset = Number(payload.presets?.reset) || 1;
+
+  const currentZoom = await runtime.tabs.getZoom(tabId);
+  let nextZoom = currentZoom;
+
+  if (payload.action === "in") nextZoom = currentZoom + step;
+  if (payload.action === "out") nextZoom = currentZoom - step;
+  if (payload.action === "in_strong") nextZoom = currentZoom + strongStep;
+  if (payload.action === "out_strong") nextZoom = currentZoom - strongStep;
+  if (payload.action === "preset_max") nextZoom = presetMax;
+  if (payload.action === "preset_min") nextZoom = presetMin;
+  if (payload.action === "reset") nextZoom = presetReset;
+
+  nextZoom = clamp(nextZoom, min, max);
+  await runtime.tabs.setZoom(tabId, nextZoom);
+};
+
 runtime.runtime.onMessage.addListener((message) => {
   if (!message || typeof message !== "object") return;
 
@@ -104,5 +145,9 @@ runtime.runtime.onMessage.addListener((message) => {
 
   if (message.type === "navbro.tab.stop_loading") {
     void stopActiveTabLoading();
+  }
+
+  if (message.type === "navbro.tab.zoom") {
+    void applyActiveTabZoom(message);
   }
 });
