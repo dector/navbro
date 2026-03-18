@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+DIST_DIR="$ROOT_DIR/dist"
+MANIFEST_PATH="$ROOT_DIR/manifest.json"
+
+read_manifest_field() {
+  local field="$1"
+  python3 - "$MANIFEST_PATH" "$field" <<'PY'
+import json
+import sys
+
+manifest_path = sys.argv[1]
+field = sys.argv[2]
+with open(manifest_path, 'r', encoding='utf-8') as f:
+    data = json.load(f)
+print(data[field])
+PY
+}
+
+EXT_NAME="$(read_manifest_field name)"
+EXT_VERSION="$(read_manifest_field version)"
+OUT_FILE="$DIST_DIR/${EXT_NAME}-${EXT_VERSION}.xpi"
+
+TMP_DIR="$(mktemp -d)"
+cleanup() {
+  rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT
+
+mkdir -p "$DIST_DIR"
+
+# Core extension files
+cp "$ROOT_DIR/manifest.json" "$TMP_DIR/"
+cp "$ROOT_DIR/content.js" "$TMP_DIR/"
+cp "$ROOT_DIR/key-config.js" "$TMP_DIR/"
+
+# Optional extra directories commonly used by extensions.
+for dir in icons assets; do
+  if [[ -d "$ROOT_DIR/$dir" ]]; then
+    cp -R "$ROOT_DIR/$dir" "$TMP_DIR/"
+  fi
+done
+
+(
+  cd "$TMP_DIR"
+  zip -qr "$OUT_FILE" .
+)
+
+echo "Built: $OUT_FILE"
