@@ -1,6 +1,7 @@
 {
   "allow": [
-    "node --check content.js"
+    "node --check content.js",
+    "node --check content.js && git status --short"
   ],
   "deny": []
 }
