@@ -1,0 +1,6 @@
+{
+  "allow": [
+    "node --check content.js"
+  ],
+  "deny": []
+}
