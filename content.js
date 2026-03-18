@@ -6,6 +6,7 @@
     toastHideTimerId: null,
     toastCleanupTimerId: null,
     qrOverlayEl: null,
+    tabWindowPickerSession: null,
     debugEntries: [],
     debugViewIndex: 0,
     hintSession: null,
@@ -17,6 +18,7 @@
   const DEBUG_ID = "navbro-debug-panel";
   const TOAST_ID = "navbro-toast";
   const QR_OVERLAY_ID = "navbro-qr-overlay";
+  const TAB_WINDOW_PICKER_ID = "navbro-tab-window-picker";
   const INPUT_ANCHOR_CLASS = "navbro-input-anchor";
   const KEY_CONFIG = window.NAVBRO_KEY_CONFIG || {
     modeToggle: { key: "Insert", ctrl: true, alt: false, shift: false, meta: false },
@@ -187,6 +189,7 @@
         ["w / u", "close tab / restore tab"],
         ["' / - / +", "history back / back / forward"],
         ["ga", "focus next tab playing audio"],
+        ["td", "move tab to selected window"],
         ["tD", "detach tab to new window"],
         ["Ctrl-Alt-h / l", "tab prev / next"],
         ["Alt-Shift-h / l", "move tab left / right"],
@@ -330,6 +333,7 @@
     STATE.mode = STATE.mode === "nav" ? "pass" : "nav";
     resetPendingSequence();
     clearHintSession({ restoreNavMode: false });
+    closeTabWindowPicker("mode_toggle");
     renderModeBadge();
     pushDebug(`mode -> ${STATE.mode}`);
   };
@@ -366,6 +370,182 @@
     } catch {
       pushDebug("runtime_send -> failed");
     }
+  };
+
+  const sendRuntimeMessageWithResponse = async (message) => {
+    if (!WEBEXT_RUNTIME?.runtime?.sendMessage) {
+      pushDebug("runtime_send -> unavailable");
+      return null;
+    }
+
+    try {
+      return await WEBEXT_RUNTIME.runtime.sendMessage(message);
+    } catch {
+      pushDebug("runtime_send -> failed");
+      return null;
+    }
+  };
+
+  const closeTabWindowPicker = (reason = "close") => {
+    const session = STATE.tabWindowPickerSession;
+    if (!session) return false;
+
+    session.overlay.remove();
+    STATE.tabWindowPickerSession = null;
+    pushDebug(`td -> ${reason}`);
+    return true;
+  };
+
+  const renderTabWindowPicker = () => {
+    const session = STATE.tabWindowPickerSession;
+    if (!session) return;
+
+    const { windows, selectedIndex, listEl } = session;
+    listEl.innerHTML = "";
+
+    windows.forEach((item, index) => {
+      const row = document.createElement("div");
+      const marker = index === selectedIndex ? "> " : "  ";
+      const currentWindowSuffix = item.isCurrentWindow ? " *" : "";
+      row.textContent = `${marker}${item.activeTabTitle} (${item.tabCount})${currentWindowSuffix}`;
+      row.style.padding = "2px 0";
+      row.style.whiteSpace = "pre";
+      row.style.color = index === selectedIndex ? "#ffd58a" : "#f5f5f5";
+      row.style.fontWeight = index === selectedIndex ? "700" : "500";
+      listEl.appendChild(row);
+    });
+  };
+
+  const startTabWindowPicker = async () => {
+    if (!document.body) return;
+    closeTabWindowPicker("replace");
+
+    const response = await sendRuntimeMessageWithResponse({ type: "navbro.window.list_for_tab_move" });
+    const windows = Array.isArray(response?.windows) ? response.windows : [];
+
+    if (!windows.length) {
+      pushDebug("td -> no_windows");
+      showToast("No windows found", 1600);
+      return;
+    }
+
+    const firstOtherWindowIndex = windows.findIndex((item) => !item.isCurrentWindow);
+    const initialIndex = firstOtherWindowIndex >= 0 ? firstOtherWindowIndex : 0;
+
+    const overlay = document.createElement("div");
+    overlay.id = TAB_WINDOW_PICKER_ID;
+    overlay.style.position = "fixed";
+    overlay.style.left = "0";
+    overlay.style.top = "0";
+    overlay.style.width = "100vw";
+    overlay.style.height = "100vh";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+    overlay.style.background = "rgba(10, 10, 14, 0.72)";
+    overlay.style.backdropFilter = "blur(1px)";
+    overlay.style.zIndex = "2147483646";
+    overlay.style.pointerEvents = "none";
+
+    const card = document.createElement("div");
+    card.style.display = "flex";
+    card.style.flexDirection = "column";
+    card.style.gap = "8px";
+    card.style.minWidth = "min(92vw, 780px)";
+    card.style.maxWidth = "min(92vw, 780px)";
+    card.style.padding = "14px 16px";
+    card.style.borderRadius = "10px";
+    card.style.background = "rgba(17, 17, 17, 0.95)";
+    card.style.border = "1px solid rgba(245, 245, 245, 0.35)";
+    card.style.boxShadow = "0 10px 26px rgba(0, 0, 0, 0.45)";
+
+    const title = document.createElement("div");
+    title.textContent = "Move tab to window (td)";
+    title.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    title.style.fontSize = "13px";
+    title.style.fontWeight = "700";
+    title.style.color = "#f5f5f5";
+
+    const caption = document.createElement("div");
+    caption.textContent = "j/k select • Enter move after active tab • Ctrl+Enter move to end • Esc close";
+    caption.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    caption.style.fontSize = "11px";
+    caption.style.color = "rgba(245, 245, 245, 0.9)";
+
+    const listEl = document.createElement("div");
+    listEl.style.display = "flex";
+    listEl.style.flexDirection = "column";
+    listEl.style.gap = "1px";
+    listEl.style.maxHeight = "48vh";
+    listEl.style.overflow = "hidden";
+    listEl.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    listEl.style.fontSize = "12px";
+    listEl.style.lineHeight = "1.35";
+
+    card.appendChild(title);
+    card.appendChild(caption);
+    card.appendChild(listEl);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    STATE.tabWindowPickerSession = {
+      overlay,
+      listEl,
+      windows,
+      selectedIndex: initialIndex,
+    };
+
+    renderTabWindowPicker();
+    pushDebug(`td -> window_picker (${windows.length})`);
+  };
+
+  const handleTabWindowPickerInput = (event) => {
+    const session = STATE.tabWindowPickerSession;
+    if (!session) return false;
+
+    const key = event.key;
+
+    if (key === "Escape") {
+      closeTabWindowPicker("cancel");
+      return true;
+    }
+
+    if (key === "j" || key === "ArrowDown") {
+      session.selectedIndex = (session.selectedIndex + 1) % session.windows.length;
+      renderTabWindowPicker();
+      return true;
+    }
+
+    if (key === "k" || key === "ArrowUp") {
+      session.selectedIndex = (session.selectedIndex - 1 + session.windows.length) % session.windows.length;
+      renderTabWindowPicker();
+      return true;
+    }
+
+    if (key === "Enter") {
+      const selected = session.windows[session.selectedIndex];
+      if (!selected?.windowId) return true;
+
+      const placement = event.ctrlKey ? "end" : "after_active";
+      const typeLabel = placement === "end" ? "end" : "after_active";
+
+      void sendRuntimeMessageWithResponse({
+        type: "navbro.tab.move_to_window",
+        targetWindowId: selected.windowId,
+        placement,
+      }).then((result) => {
+        if (result?.ok) {
+          showToast(placement === "end" ? "Tab moved to window end" : "Tab moved after active tab", 1800);
+        } else {
+          showToast("Failed to move tab", 1800);
+        }
+      });
+
+      closeTabWindowPicker(`move_${typeLabel}`);
+      return true;
+    }
+
+    return true;
   };
 
   const requestTabZoom = (action) => {
@@ -1141,6 +1321,13 @@
         return false;
       }
 
+      if (key === "d") {
+        void startTabWindowPicker();
+        pushDebug("td -> picker_open, reset");
+        resetPendingSequence();
+        return true;
+      }
+
       if (key === "D") {
         sendRuntimeMessage({ type: "navbro.tab.detach" });
         pushDebug("tD -> tab_detach, reset");
@@ -1410,6 +1597,12 @@
     }
 
     if (event.key === "Escape" && closeQrOverlay()) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    if (handleTabWindowPickerInput(event)) {
       event.preventDefault();
       event.stopPropagation();
       return;

@@ -60,6 +60,72 @@ const activateNextAudibleTab = async () => {
   await runtime.tabs.update(targetTab.id, { active: true });
 };
 
+const listWindowsForTabMove = async () => {
+  const activeTabs = await runtime.tabs.query({ currentWindow: true, active: true });
+  const activeTab = activeTabs[0];
+  const currentWindowId = activeTab?.windowId;
+
+  const windows = await runtime.windows.getAll({ populate: true, windowTypes: ["normal"] });
+  const items = windows
+    .map((windowItem) => {
+      const tabs = (windowItem.tabs || []).slice().sort((a, b) => a.index - b.index);
+      if (!tabs.length || !windowItem.id) return null;
+
+      const activeWindowTab = tabs.find((tab) => tab.active) || tabs[0];
+      const title = (activeWindowTab?.title || "(untitled)").replace(/\s+/g, " ").trim();
+
+      return {
+        windowId: windowItem.id,
+        activeTabTitle: title.length > 90 ? `${title.slice(0, 87)}...` : title,
+        tabCount: tabs.length,
+        activeTabIndex: activeWindowTab?.index ?? 0,
+        isCurrentWindow: windowItem.id === currentWindowId,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      if (a.isCurrentWindow && !b.isCurrentWindow) return -1;
+      if (!a.isCurrentWindow && b.isCurrentWindow) return 1;
+      return a.windowId - b.windowId;
+    });
+
+  return { windows: items };
+};
+
+const moveActiveTabToWindow = async (payload = {}) => {
+  const targetWindowId = Number(payload.targetWindowId);
+  const placement = payload.placement === "end" ? "end" : "after_active";
+  if (!Number.isInteger(targetWindowId)) return { ok: false, error: "invalid_target_window" };
+
+  const activeTabs = await runtime.tabs.query({ currentWindow: true, active: true });
+  const activeTab = activeTabs[0];
+  if (!activeTab?.id) return { ok: false, error: "no_active_tab" };
+
+  const windows = await runtime.windows.getAll({ populate: true, windowTypes: ["normal"] });
+  const targetWindow = windows.find((windowItem) => windowItem.id === targetWindowId);
+  if (!targetWindow) return { ok: false, error: "target_window_not_found" };
+
+  const targetTabs = (targetWindow.tabs || []).slice().sort((a, b) => a.index - b.index);
+  const activeTargetTab = targetTabs.find((tab) => tab.active);
+  let targetIndex = targetTabs.length;
+
+  if (placement === "after_active" && activeTargetTab) {
+    targetIndex = activeTargetTab.index + 1;
+  }
+
+  if (activeTab.windowId === targetWindowId && activeTab.index < targetIndex) {
+    targetIndex -= 1;
+  }
+
+  targetIndex = Math.max(0, targetIndex);
+
+  await runtime.tabs.move(activeTab.id, { windowId: targetWindowId, index: targetIndex });
+  await runtime.tabs.update(activeTab.id, { active: true });
+  await runtime.windows.update(targetWindowId, { focused: true });
+
+  return { ok: true };
+};
+
 const closeActiveTab = async () => {
   const tabs = await runtime.tabs.query({ currentWindow: true, active: true });
   const activeTab = tabs[0];
@@ -144,6 +210,14 @@ const applyActiveTabZoom = async (payload = {}) => {
 
 runtime.runtime.onMessage.addListener((message) => {
   if (!message || typeof message !== "object") return;
+
+  if (message.type === "navbro.window.list_for_tab_move") {
+    return listWindowsForTabMove();
+  }
+
+  if (message.type === "navbro.tab.move_to_window") {
+    return moveActiveTabToWindow(message);
+  }
 
   if (message.type === "navbro.tab.prev") {
     void activateAdjacentTab(-1);
