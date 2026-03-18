@@ -6,6 +6,7 @@
   const BADGE_ID = "navbro-mode-badge";
   const KEY_CONFIG = window.NAVBRO_KEY_CONFIG || {
     modeToggle: { key: "Insert", ctrl: true, alt: false, shift: false, meta: false },
+    scroll: { step: 120, fastStep: 360, smoothScroll: true },
   };
 
   if (document.getElementById(BADGE_ID)) return;
@@ -54,9 +55,36 @@
     render();
   };
 
+  const scrollByY = (deltaY) => {
+    const behavior = KEY_CONFIG.scroll.smoothScroll ? "auto" : "instant";
+    window.scrollBy({ top: deltaY, left: 0, behavior });
+  };
+
   const handleNavInput = (event) => {
-    // Placeholder for future key handling in nav mode.
-    // Return true when handled and consumed.
+    if (event.ctrlKey || event.altKey || event.metaKey) {
+      return false;
+    }
+
+    if (event.key === "j") {
+      scrollByY(KEY_CONFIG.scroll.step);
+      return true;
+    }
+
+    if (event.key === "k") {
+      scrollByY(-KEY_CONFIG.scroll.step);
+      return true;
+    }
+
+    if (event.key === "J") {
+      scrollByY(KEY_CONFIG.scroll.fastStep);
+      return true;
+    }
+
+    if (event.key === "K") {
+      scrollByY(-KEY_CONFIG.scroll.fastStep);
+      return true;
+    }
+
     return false;
   };
 

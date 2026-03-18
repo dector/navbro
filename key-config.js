@@ -8,6 +8,11 @@
       shift: false,
       meta: false,
     }),
+    scroll: Object.freeze({
+      step: 120,
+      fastStep: 360,
+      smoothScroll: true,
+    }),
   });
 
   window.NAVBRO_KEY_CONFIG = KEY_CONFIG;
