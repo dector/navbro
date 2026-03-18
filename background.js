@@ -36,6 +36,30 @@ const moveActiveTab = async (direction) => {
   await runtime.tabs.update(activeTab.id, { active: true });
 };
 
+const activateNextAudibleTab = async () => {
+  const tabs = await getOrderedTabs();
+  if (!tabs.length) return;
+
+  const audibleTabs = tabs.filter((tab) => tab.audible && tab.id);
+  if (!audibleTabs.length) return;
+
+  const activeIndex = tabs.findIndex((tab) => tab.active);
+  if (activeIndex === -1) return;
+
+  const activeTab = tabs[activeIndex];
+  const activeAudibleIndex = audibleTabs.findIndex((tab) => tab.id === activeTab?.id);
+  const targetAudibleIndex =
+    activeAudibleIndex >= 0
+      ? (activeAudibleIndex + 1) % audibleTabs.length
+      : audibleTabs.findIndex((tab) => tab.index > activeIndex);
+
+  const fallbackIndex = targetAudibleIndex === -1 ? 0 : targetAudibleIndex;
+  const targetTab = audibleTabs[fallbackIndex];
+  if (!targetTab?.id) return;
+
+  await runtime.tabs.update(targetTab.id, { active: true });
+};
+
 const closeActiveTab = async () => {
   const tabs = await runtime.tabs.query({ currentWindow: true, active: true });
   const activeTab = tabs[0];
@@ -125,6 +149,10 @@ runtime.runtime.onMessage.addListener((message) => {
 
   if (message.type === "navbro.tab.move_next") {
     void moveActiveTab(1);
+  }
+
+  if (message.type === "navbro.tab.audio_next") {
+    void activateNextAudibleTab();
   }
 
   if (message.type === "navbro.link.open_tab") {

@@ -186,6 +186,7 @@
       rows: [
         ["w / u", "close tab / restore tab"],
         ["' / - / +", "history back / back / forward"],
+        ["ga", "focus next tab playing audio"],
         ["Ctrl-Alt-h / l", "tab prev / next"],
         ["Alt-Shift-h / l", "move tab left / right"],
       ],
@@ -1064,6 +1065,13 @@
       if (key === "U") {
         navigateToUrlRoot();
         pushDebug("gU -> url_root, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "a") {
+        sendRuntimeMessage({ type: "navbro.tab.audio_next" });
+        pushDebug("ga -> tab_audio_next, reset");
         resetPendingSequence();
         return true;
       }

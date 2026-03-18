@@ -55,6 +55,7 @@ Legend:
 - [ ] Move tab left (`<<`)
 - [ ] Move tab to start
 - [ ] Move tab to end
+- [x] Go to tab playing audio / cycle (`ga`)
 - [ ] Toggle tab audio
 - [ ] Detach tab
 - [ ] Push tab workflow
