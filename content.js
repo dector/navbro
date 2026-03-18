@@ -1,9 +1,10 @@
 (() => {
   const STATE = {
-    mode: "nav", // 'nav' | 'pass'
+    mode: "nav", // 'nav' | 'pass' | 'hint'
     pendingSequence: null,
     pendingTimerId: null,
     debugEntries: [],
+    hintSession: null,
   };
 
   const BADGE_ID = "navbro-mode-badge";
@@ -19,6 +20,10 @@
     },
     keySequence: { timeoutMs: 5000 },
     debug: { maxEntries: 10 },
+    hints: {
+      alphabetMode: "both",
+      alphabets: { left: "asdfqwer", right: "jkl;uiop" },
+    },
   };
   const WEBEXT_RUNTIME = typeof browser !== "undefined" ? browser : typeof chrome !== "undefined" ? chrome : null;
 
@@ -62,9 +67,10 @@
 
   const renderModeBadge = () => {
     const isWaitingNext = STATE.pendingSequence !== null;
+    const isHint = STATE.mode === "hint";
     badge.textContent = STATE.mode;
-    badge.style.background = isWaitingNext ? "#f2c48d" : "#111";
-    badge.style.color = isWaitingNext ? "#1f1f1f" : "#fff";
+    badge.style.background = isHint ? "#7cc7e8" : isWaitingNext ? "#f2c48d" : "#111";
+    badge.style.color = isHint || isWaitingNext ? "#1f1f1f" : "#fff";
   };
 
   const renderDebugPanel = () => {
@@ -134,6 +140,7 @@
   const toggleMode = () => {
     STATE.mode = STATE.mode === "nav" ? "pass" : "nav";
     resetPendingSequence();
+    clearHintSession({ restoreNavMode: false });
     renderModeBadge();
     pushDebug(`mode -> ${STATE.mode}`);
   };
@@ -189,6 +196,189 @@
     const url = new URL(window.location.href);
     const target = `${url.origin}/`;
     window.location.assign(target);
+  };
+
+  const getHintAlphabet = (mode = KEY_CONFIG.hints?.alphabetMode || "both") => {
+    const leftRaw = KEY_CONFIG.hints?.alphabets?.left || "asdfqwer";
+    const rightRaw = KEY_CONFIG.hints?.alphabets?.right || "jkl;uiop";
+    const left = leftRaw.split("");
+    const right = rightRaw.split("");
+
+    if (mode === "left") {
+      return [...new Set(left)].join("");
+    }
+
+    if (mode === "right") {
+      return [...new Set(right)].join("");
+    }
+
+    // Priority: asdf + jkl; first, then qwer + uiop.
+    const both = [...left.slice(0, 4), ...right.slice(0, 4), ...left.slice(4), ...right.slice(4)];
+    return [...new Set(both)].join("");
+  };
+
+  const indexToHintCode = (index, alphabet) => {
+    const chars = alphabet.split("");
+    const base = chars.length;
+    let n = index;
+    let code = "";
+
+    do {
+      code = chars[n % base] + code;
+      n = Math.floor(n / base) - 1;
+    } while (n >= 0);
+
+    return code;
+  };
+
+  const isElementVisibleForHint = (element) => {
+    const rect = element.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return false;
+
+    if (rect.bottom < 0 || rect.top > window.innerHeight || rect.right < 0 || rect.left > window.innerWidth) {
+      return false;
+    }
+
+    const style = window.getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+    if (Number.parseFloat(style.opacity || "1") === 0) return false;
+
+    return true;
+  };
+
+  const clearHintSession = (options = {}) => {
+    const { restoreNavMode = true } = options;
+    const session = STATE.hintSession;
+    if (!session) return;
+
+    session.overlay.remove();
+    STATE.hintSession = null;
+
+    if (restoreNavMode && STATE.mode === "hint") {
+      STATE.mode = "nav";
+      renderModeBadge();
+    }
+
+    pushDebug("hint -> exit");
+  };
+
+  const refreshHintSession = () => {
+    const session = STATE.hintSession;
+    if (!session) return;
+
+    const typed = session.typed;
+    let visibleCount = 0;
+
+    for (const item of session.items) {
+      const isVisible = item.code.startsWith(typed);
+      item.label.style.display = isVisible ? "block" : "none";
+      if (isVisible) visibleCount += 1;
+    }
+
+    if (visibleCount === 0) {
+      pushDebug(`hint(${typed}) -> none`);
+    }
+  };
+
+  const activateHint = (item) => {
+    clearHintSession();
+    item.element.focus({ preventScroll: true });
+    item.element.click();
+    pushDebug(`hint -> open ${item.code}`);
+  };
+
+  const startHintSession = () => {
+    if (!document.body) return false;
+
+    const links = Array.from(document.querySelectorAll("a[href]"));
+    const visibleLinks = links.filter(isElementVisibleForHint);
+    if (!visibleLinks.length) {
+      pushDebug("f -> no_links");
+      return true;
+    }
+
+    const alphabet = getHintAlphabet();
+    if (!alphabet.length) {
+      pushDebug("f -> no_alphabet");
+      return true;
+    }
+
+    const overlay = document.createElement("div");
+    overlay.style.position = "fixed";
+    overlay.style.left = "0";
+    overlay.style.top = "0";
+    overlay.style.width = "100vw";
+    overlay.style.height = "100vh";
+    overlay.style.zIndex = "2147483646";
+    overlay.style.pointerEvents = "none";
+
+    const items = visibleLinks.map((element, index) => {
+      const code = indexToHintCode(index, alphabet);
+      const rect = element.getBoundingClientRect();
+
+      const label = document.createElement("div");
+      label.textContent = code;
+      label.style.position = "fixed";
+      label.style.left = `${Math.max(0, Math.round(rect.left))}px`;
+      label.style.top = `${Math.max(0, Math.round(rect.top - 10))}px`;
+      label.style.padding = "1px 4px";
+      label.style.borderRadius = "4px";
+      label.style.background = "rgba(248, 209, 128, 0.65)";
+      label.style.color = "#121212";
+      label.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+      label.style.fontSize = "10px";
+      label.style.fontWeight = "600";
+      label.style.lineHeight = "1.2";
+      label.style.textTransform = "lowercase";
+      label.style.boxShadow = "0 0 0 1px rgba(17,17,17,0.25)";
+      overlay.appendChild(label);
+
+      return { code, element, label };
+    });
+
+    document.body.appendChild(overlay);
+    STATE.hintSession = { typed: "", items, overlay, alphabet };
+    STATE.mode = "hint";
+    renderModeBadge();
+    pushDebug(`f -> hint_mode (${items.length})`);
+    return true;
+  };
+
+  const handleHintInput = (event) => {
+    const session = STATE.hintSession;
+    if (!session) return false;
+
+    const key = event.key;
+    if (key === "Escape") {
+      clearHintSession();
+      return true;
+    }
+
+    if (key === "Backspace") {
+      session.typed = session.typed.slice(0, -1);
+      refreshHintSession();
+      return true;
+    }
+
+    if (key.length !== 1) {
+      return true;
+    }
+
+    const char = key.toLowerCase();
+    if (!session.alphabet.includes(char)) {
+      return true;
+    }
+
+    session.typed += char;
+    refreshHintSession();
+
+    const exact = session.items.find((item) => item.code === session.typed);
+    if (exact) {
+      activateHint(exact);
+      return true;
+    }
+
+    return true;
   };
 
   const handleNavInput = (event) => {
@@ -315,6 +505,10 @@
       return true;
     }
 
+    if (key === "f") {
+      return startHintSession();
+    }
+
     if (key === "j") {
       scrollByY(KEY_CONFIG.scroll.step);
       pushDebug("j -> scroll_down");
@@ -357,6 +551,12 @@
 
     if (STATE.mode === "pass") {
       // Passthrough mode: ignore all keys except the mode toggle.
+      return;
+    }
+
+    if (handleHintInput(event)) {
+      event.preventDefault();
+      event.stopPropagation();
       return;
     }
 

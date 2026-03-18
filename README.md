@@ -15,7 +15,7 @@ Legend:
 
 ### Core / modes
 - [x] Extension loads on every page
-- [x] Mode badge UI (`nav` / `pass`)
+- [x] Mode badge UI (`nav` / `pass` / `hint`)
 - [x] Debug panel UI for key logs
 - [x] Mode toggle (`Ctrl-Insert`)
 - [x] Multi-key sequence support (initial, for `g...`)
@@ -66,7 +66,7 @@ Legend:
 - [ ] Jump list forward (`Ctrl-i`)
 
 ### Hints & link interaction
-- [ ] Hint mode (`f`)
+- [x] Hint mode (`f`)
 - [ ] Hint mode in new tab (`F`)
 - [ ] Hint mode (alternate, `T`)
 - [ ] Hint action family (`;...`)

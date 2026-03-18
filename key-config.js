@@ -21,6 +21,13 @@
     debug: Object.freeze({
       maxEntries: 10,
     }),
+    hints: Object.freeze({
+      alphabetMode: "both", // 'left' | 'right' | 'both'
+      alphabets: Object.freeze({
+        left: "asdfqwer",
+        right: "jkl;uiop",
+      }),
+    }),
   });
 
   window.NAVBRO_KEY_CONFIG = KEY_CONFIG;
