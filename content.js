@@ -25,6 +25,7 @@
     debug: { maxEntries: 10 },
     hints: {
       alphabetMode: "both",
+      displayCovered: false,
       alphabets: { left: "asdfqwer", right: "jkl;uiop" },
       selectors: {
         current: "a[href], button, [role='button']",
@@ -367,12 +368,16 @@
     return configuredCurrent || "a[href], button, [role='button']";
   };
 
-  const getHintTargets = (action = "current") => {
+  const getHintTargets = (action = "current", options = {}) => {
+    const { displayCovered = !!KEY_CONFIG.hints?.displayCovered } = options;
     const selector = getHintTargetSelector(action);
 
     try {
       const elements = Array.from(document.querySelectorAll(selector));
-      return [...new Set(elements)];
+      const uniqueElements = [...new Set(elements)];
+      return uniqueElements.filter((element) =>
+        isElementVisibleForHint(element, { displayCovered }),
+      );
     } catch {
       pushDebug(`hint -> bad_selector ${selector}`);
       return [];
@@ -393,7 +398,40 @@
     return code;
   };
 
-  const isElementVisibleForHint = (element) => {
+  const isElementOccludedForHint = (element, rect) => {
+    const viewportLeft = Math.max(0, rect.left);
+    const viewportTop = Math.max(0, rect.top);
+    const viewportRight = Math.min(window.innerWidth, rect.right);
+    const viewportBottom = Math.min(window.innerHeight, rect.bottom);
+
+    if (viewportRight - viewportLeft < 1 || viewportBottom - viewportTop < 1) {
+      return true;
+    }
+
+    const sampleRatios = [
+      [0.5, 0.5],
+      [0.2, 0.2],
+      [0.8, 0.2],
+      [0.2, 0.8],
+      [0.8, 0.8],
+    ];
+
+    for (const [rx, ry] of sampleRatios) {
+      const x = viewportLeft + (viewportRight - viewportLeft) * rx;
+      const y = viewportTop + (viewportBottom - viewportTop) * ry;
+      const topElement = document.elementFromPoint(x, y);
+
+      if (!topElement) continue;
+      if (topElement === element || element.contains(topElement)) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const isElementVisibleForHint = (element, options = {}) => {
+    const { displayCovered = !!KEY_CONFIG.hints?.displayCovered } = options;
     const rect = element.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) return false;
 
@@ -404,6 +442,10 @@
     const style = window.getComputedStyle(element);
     if (style.display === "none" || style.visibility === "hidden") return false;
     if (Number.parseFloat(style.opacity || "1") === 0) return false;
+
+    if (!displayCovered && isElementOccludedForHint(element, rect)) {
+      return false;
+    }
 
     return true;
   };
@@ -470,12 +512,11 @@
     pushDebug(`hint -> open ${item.code}`);
   };
 
-  const startHintSession = (action = "current") => {
+  const startHintSession = (action = "current", options = {}) => {
     if (!document.body) return false;
 
-    const targets = getHintTargets(action);
-    const visibleTargets = targets.filter(isElementVisibleForHint);
-    if (!visibleTargets.length) {
+    const targets = getHintTargets(action, options);
+    if (!targets.length) {
       pushDebug("f -> no_targets");
       return true;
     }
@@ -495,18 +536,22 @@
     overlay.style.zIndex = "2147483646";
     overlay.style.pointerEvents = "none";
 
-    const items = visibleTargets.map((element, index) => {
+    const items = targets.map((element, index) => {
       const code = indexToHintCode(index, alphabet);
       const rect = element.getBoundingClientRect();
 
       const label = document.createElement("div");
       label.textContent = code;
+      const centerX = rect.left + rect.width / 2;
+      const bottomY = rect.bottom;
+
       label.style.position = "fixed";
-      label.style.left = `${Math.max(0, Math.round(rect.left))}px`;
-      label.style.top = `${Math.max(0, Math.round(rect.top - 10))}px`;
+      label.style.left = `${Math.round(centerX)}px`;
+      label.style.top = `${Math.round(bottomY - 4)}px`;
+      label.style.transform = "translateX(-50%)";
       label.style.padding = "1px 4px";
       label.style.borderRadius = "4px";
-      label.style.background = "rgba(248, 209, 128, 0.65)";
+      label.style.background = "rgba(191, 122, 138, 0.72)";
       label.style.color = "#121212";
       label.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
       label.style.fontSize = "10px";

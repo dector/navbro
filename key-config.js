@@ -23,6 +23,7 @@
     }),
     hints: Object.freeze({
       alphabetMode: "both", // 'left' | 'right' | 'both'
+      displayCovered: false, // show hint labels for elements hidden behind overlays/dialogs
       alphabets: Object.freeze({
         left: "asdfqwer",
         right: "jkl;uiop",

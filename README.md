@@ -70,7 +70,12 @@ Legend:
 - [x] Hint mode (`f`)
 - [x] Hint mode in new tab (`F`)
 - [x] Hint mode (alternate, `T`)
+- [x] Covered/occluded targets are hidden by default (e.g. behind dialogs)
 - [ ] Hint action family (`;...`)
+
+Hint config (see `key-config.js`):
+- `hints.displayCovered: false` (default) — hide hints for covered elements
+- `hints.displayCovered: true` — show hints even if elements are covered
 
 ### Editing, command-like actions, utilities
 - [x] Focus input (`gi`)
