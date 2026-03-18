@@ -26,6 +26,10 @@
     hints: {
       alphabetMode: "both",
       alphabets: { left: "asdfqwer", right: "jkl;uiop" },
+      selectors: {
+        current: "a[href], button, [role='button']",
+        tab: "a[href]",
+      },
     },
   };
   const WEBEXT_RUNTIME = typeof browser !== "undefined" ? browser : typeof chrome !== "undefined" ? chrome : null;
@@ -352,6 +356,29 @@
     return [...new Set(both)].join("");
   };
 
+  const getHintTargetSelector = (action = "current") => {
+    const configuredCurrent = KEY_CONFIG.hints?.selectors?.current;
+    const configuredTab = KEY_CONFIG.hints?.selectors?.tab;
+
+    if (action === "tab-bg" || action === "tab-fg") {
+      return configuredTab || configuredCurrent || "a[href]";
+    }
+
+    return configuredCurrent || "a[href], button, [role='button']";
+  };
+
+  const getHintTargets = (action = "current") => {
+    const selector = getHintTargetSelector(action);
+
+    try {
+      const elements = Array.from(document.querySelectorAll(selector));
+      return [...new Set(elements)];
+    } catch {
+      pushDebug(`hint -> bad_selector ${selector}`);
+      return [];
+    }
+  };
+
   const indexToHintCode = (index, alphabet) => {
     const chars = alphabet.split("");
     const base = chars.length;
@@ -446,10 +473,10 @@
   const startHintSession = (action = "current") => {
     if (!document.body) return false;
 
-    const links = Array.from(document.querySelectorAll("a[href]"));
-    const visibleLinks = links.filter(isElementVisibleForHint);
-    if (!visibleLinks.length) {
-      pushDebug("f -> no_links");
+    const targets = getHintTargets(action);
+    const visibleTargets = targets.filter(isElementVisibleForHint);
+    if (!visibleTargets.length) {
+      pushDebug("f -> no_targets");
       return true;
     }
 
@@ -468,7 +495,7 @@
     overlay.style.zIndex = "2147483646";
     overlay.style.pointerEvents = "none";
 
-    const items = visibleLinks.map((element, index) => {
+    const items = visibleTargets.map((element, index) => {
       const code = indexToHintCode(index, alphabet);
       const rect = element.getBoundingClientRect();
 

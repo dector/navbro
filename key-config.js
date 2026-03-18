@@ -27,6 +27,10 @@
         left: "asdfqwer",
         right: "jkl;uiop",
       }),
+      selectors: Object.freeze({
+        current: "a[href], button, [role='button']",
+        tab: "a[href]",
+      }),
     }),
   });
 
