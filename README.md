@@ -17,7 +17,8 @@ Legend:
 - [x] Extension loads on every page
 - [x] Mode badge UI (`nav` / `pass` / `hint` / `input`)
 - [x] Debug panel UI for key logs
-- [x] Debug panel view toggle (`??`: hidden → 1 line → 10 lines)
+- [x] Debug panel view toggle (`?d`: hidden → 1 line → 10 lines)
+- [x] Hotkeys quick help (`??`)
 - [x] Mode toggle (`Ctrl-Insert`)
 - [x] Multi-key sequence support (initial, for `g...`)
 - [x] Sequence timeout handling

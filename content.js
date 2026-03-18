@@ -101,7 +101,10 @@
   toast.style.border = "1px solid rgba(245, 245, 245, 0.5)";
   toast.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
   toast.style.fontSize = "12px";
-  toast.style.lineHeight = "1.2";
+  toast.style.lineHeight = "1.25";
+  toast.style.whiteSpace = "pre-line";
+  toast.style.textAlign = "left";
+  toast.style.maxWidth = "min(92vw, 780px)";
   toast.style.boxShadow = "0 4px 16px rgba(0,0,0,0.28)";
   toast.style.pointerEvents = "none";
   toast.style.opacity = "0";
@@ -147,10 +150,77 @@
     STATE.debugViewIndex = (STATE.debugViewIndex + 1) % DEBUG_VIEW_LINES.length;
     const visibleLines = DEBUG_VIEW_LINES[STATE.debugViewIndex] ?? 0;
     const label = visibleLines === 0 ? "hidden" : visibleLines === 1 ? "1_line" : `${visibleLines}_lines`;
-    pushDebug(`?? -> debug_${label}`);
+    pushDebug(`?d -> debug_${label}`);
   };
 
-  const showToast = (message, durationMs = 2000) => {
+  const HOTKEYS_HELP_GROUPS = [
+    {
+      title: "Navigation & scrolling",
+      rows: [
+        ["j / k / J / K", "scroll ↓/↑ (normal/fast)"],
+        ["gg / G", "top / bottom"],
+        ["Ctrl-d / Ctrl-u", "half page ↓ / ↑"],
+        ["Ctrl-f / Ctrl-b", "full page ↓ / ↑"],
+      ],
+    },
+    {
+      title: "Hints, search & input",
+      rows: [
+        ["f / F / T", "hints (current / bg tab / fg tab)"],
+        ["/", "native find"],
+        ["i / Esc", "input mode / back to nav"],
+        ["gi", "focus next important input"],
+      ],
+    },
+    {
+      title: "URL, yank & zoom",
+      rows: [
+        ["gu / gU", "URL parent / URL root"],
+        ["yy / yY / yq", "copy URL / copy title+URL / QR"],
+        ["zz / zi / zd", "zoom reset / in / out"],
+        ["zI / zD / zm / zM", "zoom in++ / out++ / min / max"],
+      ],
+    },
+    {
+      title: "Tabs & history",
+      rows: [
+        ["w / u / '", "close tab / restore tab / history back"],
+        ["Ctrl-Alt-h / l", "tab prev / next"],
+        ["Alt-Shift-h / l", "move tab left / right"],
+      ],
+    },
+    {
+      title: "Debug & help",
+      rows: [["?d / ??", "debug panel / hotkeys help"]],
+    },
+  ];
+
+  const escapeHtml = (value) => {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  };
+
+  const showHotkeysHelp = () => {
+    const allRows = HOTKEYS_HELP_GROUPS.flatMap((group) => group.rows);
+    const col1Width = allRows.reduce((max, [keys]) => Math.max(max, keys.length), 0);
+    const lines = ["<strong>Hotkeys (nav mode):</strong>"];
+
+    HOTKEYS_HELP_GROUPS.forEach((group) => {
+      lines.push("");
+      lines.push(`<strong>${escapeHtml(group.title)}:</strong>`);
+      group.rows.forEach(([keys, action]) => {
+        lines.push(`${escapeHtml(keys.padEnd(col1Width))}  ${escapeHtml(action)}`);
+      });
+    });
+
+    showToast(`<pre style=\"margin:0\">${lines.join("\n")}</pre>`, 11000, { isHtml: true });
+  };
+
+  const showToast = (message, durationMs = 2000, options = {}) => {
     if (!document.body) return;
 
     if (STATE.toastHideTimerId !== null) {
@@ -163,7 +233,12 @@
       STATE.toastCleanupTimerId = null;
     }
 
-    toast.textContent = message;
+    if (options.isHtml) {
+      toast.innerHTML = message;
+    } else {
+      toast.textContent = message;
+    }
+
     toast.style.display = "block";
     toast.style.opacity = "0";
     toast.style.transform = "translate(-50%, -8px)";
@@ -1003,8 +1078,15 @@
         return false;
       }
 
-      if (key === "?") {
+      if (key === "d") {
         toggleDebugView();
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "?") {
+        showHotkeysHelp();
+        pushDebug("?? -> hotkeys_help, reset");
         resetPendingSequence();
         return true;
       }
