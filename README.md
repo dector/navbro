@@ -18,7 +18,7 @@ Initial scaffold only:
 Based on the referenced Tridactyl config, the first target feature set is:
 
 ### 1) Navigation & scrolling
-- Vim-style scrolling (`j`, `k`, `h`, `l`)
+- Vim-style vertical scrolling (`j`, `k`)
 - Faster/slower variants (`J`, `K`, etc.)
 - Page scrolling (`Ctrl-d`, `Ctrl-u`, `Ctrl-f`, `Ctrl-b`)
 - Jump to top/bottom (`gg`, `G`)
@@ -56,6 +56,7 @@ Based on the referenced Tridactyl config, the first target feature set is:
 - Full Tridactyl compatibility
 - Full command-line parser from day one
 - Large, complex configuration surface in the first versions
+- Horizontal scrolling bindings (`h`, `l`) are not planned for now (deferred)
 
 ## Development notes
 

@@ -11,6 +11,8 @@
     scroll: Object.freeze({
       step: 120,
       fastStep: 360,
+      pageHalfStepFactor: 0.5,
+      pageFullStepFactor: 0.9,
       smoothScroll: false,
     }),
     keySequence: Object.freeze({

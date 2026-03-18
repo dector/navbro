@@ -10,7 +10,13 @@
   const DEBUG_ID = "navbro-debug-panel";
   const KEY_CONFIG = window.NAVBRO_KEY_CONFIG || {
     modeToggle: { key: "Insert", ctrl: true, alt: false, shift: false, meta: false },
-    scroll: { step: 120, fastStep: 360, smoothScroll: true },
+    scroll: {
+      step: 120,
+      fastStep: 360,
+      pageHalfStepFactor: 0.5,
+      pageFullStepFactor: 0.9,
+      smoothScroll: true,
+    },
     keySequence: { timeoutMs: 5000 },
     debug: { maxEntries: 10 },
   };
@@ -136,6 +142,10 @@
     window.scrollBy({ top: deltaY, left: 0, behavior });
   };
 
+  const getPageStep = (factor) => {
+    return Math.max(1, Math.round(window.innerHeight * factor));
+  };
+
   const scrollToTop = () => {
     const behavior = KEY_CONFIG.scroll.smoothScroll ? "auto" : "instant";
     window.scrollTo({ top: 0, left: 0, behavior });
@@ -149,29 +159,60 @@
   };
 
   const handleNavInput = (event) => {
-    if (event.ctrlKey || event.altKey || event.metaKey) {
-      return false;
-    }
+    const key = event.key;
+    const lowerKey = key.length === 1 ? key.toLowerCase() : key;
 
     if (STATE.pendingSequence === "g") {
-      if (isModifierKey(event.key)) {
-        pushDebug(`${event.key.toLowerCase()}(down)`);
+      if (isModifierKey(key)) {
+        pushDebug(`${key.toLowerCase()}(down)`);
         return false;
       }
 
-      if (event.key === "g") {
+      if (key === "g") {
         scrollToTop();
         pushDebug("g -> scroll_top, reset");
         resetPendingSequence();
         return true;
       }
 
-      pushDebug(`${event.key} -> none, reset`);
+      pushDebug(`${key} -> none, reset`);
       resetPendingSequence();
       return true;
     }
 
-    if (event.key === "g") {
+    if (event.altKey || event.metaKey) {
+      return false;
+    }
+
+    if (event.ctrlKey && !event.shiftKey) {
+      if (lowerKey === "d") {
+        scrollByY(getPageStep(KEY_CONFIG.scroll.pageHalfStepFactor));
+        pushDebug("Ctrl-d -> page_down_half");
+        return true;
+      }
+
+      if (lowerKey === "u") {
+        scrollByY(-getPageStep(KEY_CONFIG.scroll.pageHalfStepFactor));
+        pushDebug("Ctrl-u -> page_up_half");
+        return true;
+      }
+
+      if (lowerKey === "f") {
+        scrollByY(getPageStep(KEY_CONFIG.scroll.pageFullStepFactor));
+        pushDebug("Ctrl-f -> page_down_full");
+        return true;
+      }
+
+      if (lowerKey === "b") {
+        scrollByY(-getPageStep(KEY_CONFIG.scroll.pageFullStepFactor));
+        pushDebug("Ctrl-b -> page_up_full");
+        return true;
+      }
+
+      return false;
+    }
+
+    if (key === "g") {
       STATE.pendingSequence = "g";
       renderModeBadge();
       schedulePendingTimeout();
@@ -179,38 +220,38 @@
       return true;
     }
 
-    if (event.key === "G") {
+    if (key === "G") {
       scrollToBottom();
       pushDebug("G -> scroll_bottom");
       return true;
     }
 
-    if (event.key === "j") {
+    if (key === "j") {
       scrollByY(KEY_CONFIG.scroll.step);
       pushDebug("j -> scroll_down");
       return true;
     }
 
-    if (event.key === "k") {
+    if (key === "k") {
       scrollByY(-KEY_CONFIG.scroll.step);
       pushDebug("k -> scroll_up");
       return true;
     }
 
-    if (event.key === "J") {
+    if (key === "J") {
       scrollByY(KEY_CONFIG.scroll.fastStep);
       pushDebug("J -> scroll_down_fast");
       return true;
     }
 
-    if (event.key === "K") {
+    if (key === "K") {
       scrollByY(-KEY_CONFIG.scroll.fastStep);
       pushDebug("K -> scroll_up_fast");
       return true;
     }
 
-    if (event.key.length === 1) {
-      pushDebug(`${event.key} -> none`);
+    if (key.length === 1) {
+      pushDebug(`${key} -> none`);
       return true;
     }
 
