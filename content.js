@@ -677,6 +677,55 @@
     return false;
   };
 
+  const handleTabNavigationHotkeys = (event) => {
+    const key = event.key;
+    const lowerKey = key.length === 1 ? key.toLowerCase() : key;
+
+    if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+      if (lowerKey === "h") {
+        sendRuntimeMessage({ type: "navbro.tab.prev" });
+        pushDebug("Alt-h -> tab_prev");
+        return true;
+      }
+
+      if (lowerKey === "l") {
+        sendRuntimeMessage({ type: "navbro.tab.next" });
+        pushDebug("Alt-l -> tab_next");
+        return true;
+      }
+    }
+
+    if (event.altKey && event.ctrlKey && !event.metaKey && !event.shiftKey) {
+      if (lowerKey === "h") {
+        sendRuntimeMessage({ type: "navbro.tab.prev" });
+        pushDebug("Ctrl-Alt-h -> tab_prev");
+        return true;
+      }
+
+      if (lowerKey === "l") {
+        sendRuntimeMessage({ type: "navbro.tab.next" });
+        pushDebug("Ctrl-Alt-l -> tab_next");
+        return true;
+      }
+    }
+
+    if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey) {
+      if (lowerKey === "h") {
+        sendRuntimeMessage({ type: "navbro.tab.move_prev" });
+        pushDebug("Alt-Shift-h -> tab_move_prev");
+        return true;
+      }
+
+      if (lowerKey === "l") {
+        sendRuntimeMessage({ type: "navbro.tab.move_next" });
+        pushDebug("Alt-Shift-l -> tab_move_next");
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   const handleNavInput = (event) => {
     const key = event.key;
     const lowerKey = key.length === 1 ? key.toLowerCase() : key;
@@ -719,46 +768,8 @@
       return true;
     }
 
-    if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
-      if (lowerKey === "h") {
-        sendRuntimeMessage({ type: "navbro.tab.prev" });
-        pushDebug("Alt-h -> tab_prev");
-        return true;
-      }
-
-      if (lowerKey === "l") {
-        sendRuntimeMessage({ type: "navbro.tab.next" });
-        pushDebug("Alt-l -> tab_next");
-        return true;
-      }
-    }
-
-    if (event.altKey && event.ctrlKey && !event.metaKey && !event.shiftKey) {
-      if (lowerKey === "h") {
-        sendRuntimeMessage({ type: "navbro.tab.prev" });
-        pushDebug("Ctrl-Alt-h -> tab_prev");
-        return true;
-      }
-
-      if (lowerKey === "l") {
-        sendRuntimeMessage({ type: "navbro.tab.next" });
-        pushDebug("Ctrl-Alt-l -> tab_next");
-        return true;
-      }
-    }
-
-    if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey) {
-      if (lowerKey === "h") {
-        sendRuntimeMessage({ type: "navbro.tab.move_prev" });
-        pushDebug("Alt-Shift-h -> tab_move_prev");
-        return true;
-      }
-
-      if (lowerKey === "l") {
-        sendRuntimeMessage({ type: "navbro.tab.move_next" });
-        pushDebug("Alt-Shift-l -> tab_move_next");
-        return true;
-      }
+    if (handleTabNavigationHotkeys(event)) {
+      return true;
     }
 
     if (event.altKey || event.metaKey) {
@@ -925,6 +936,12 @@
     }
 
     if (handleInputJumpInputOrNav(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    if (STATE.mode === "input" && handleTabNavigationHotkeys(event)) {
       event.preventDefault();
       event.stopPropagation();
       return;
