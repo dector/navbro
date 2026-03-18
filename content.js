@@ -172,6 +172,25 @@
     }
   };
 
+  const navigateToUrlParent = () => {
+    const url = new URL(window.location.href);
+    const parts = url.pathname.split("/").filter((part) => part.length > 0);
+
+    if (parts.length > 0) {
+      parts.pop();
+    }
+
+    const parentPath = parts.length ? `/${parts.join("/")}/` : "/";
+    const target = `${url.origin}${parentPath}`;
+    window.location.assign(target);
+  };
+
+  const navigateToUrlRoot = () => {
+    const url = new URL(window.location.href);
+    const target = `${url.origin}/`;
+    window.location.assign(target);
+  };
+
   const handleNavInput = (event) => {
     const key = event.key;
     const lowerKey = key.length === 1 ? key.toLowerCase() : key;
@@ -185,6 +204,20 @@
       if (key === "g") {
         scrollToTop();
         pushDebug("g -> scroll_top, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "u") {
+        navigateToUrlParent();
+        pushDebug("gu -> url_parent, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "U") {
+        navigateToUrlRoot();
+        pushDebug("gU -> url_root, reset");
         resetPendingSequence();
         return true;
       }

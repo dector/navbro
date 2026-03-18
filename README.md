@@ -60,8 +60,8 @@ Legend:
 - [ ] History back (`'`)
 - [ ] History back/alt binding (`-`)
 - [ ] History forward (`+`)
-- [ ] URL parent (`gu`)
-- [ ] URL root (`gU`)
+- [x] URL parent (`gu`)
+- [x] URL root (`gU`)
 - [ ] Jump list back (`Ctrl-o`)
 - [ ] Jump list forward (`Ctrl-i`)
 
