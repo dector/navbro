@@ -187,6 +187,7 @@
         ["w / u", "close tab / restore tab"],
         ["' / - / +", "history back / back / forward"],
         ["ga", "focus next tab playing audio"],
+        ["tD", "detach tab to new window"],
         ["Ctrl-Alt-h / l", "tab prev / next"],
         ["Alt-Shift-h / l", "move tab left / right"],
       ],
@@ -1134,6 +1135,24 @@
       return true;
     }
 
+    if (STATE.pendingSequence === "t") {
+      if (isModifierKey(key)) {
+        pushDebug(`${key.toLowerCase()}(down)`);
+        return false;
+      }
+
+      if (key === "D") {
+        sendRuntimeMessage({ type: "navbro.tab.detach" });
+        pushDebug("tD -> tab_detach, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      pushDebug(`${key} -> none, reset`);
+      resetPendingSequence();
+      return true;
+    }
+
     if (STATE.pendingSequence === "z") {
       if (isModifierKey(key)) {
         pushDebug(`${key.toLowerCase()}(down)`);
@@ -1307,6 +1326,14 @@
       renderModeBadge();
       schedulePendingTimeout();
       pushDebug("y -> waiting_next");
+      return true;
+    }
+
+    if (key === "t") {
+      STATE.pendingSequence = "t";
+      renderModeBadge();
+      schedulePendingTimeout();
+      pushDebug("t -> waiting_next");
       return true;
     }
 

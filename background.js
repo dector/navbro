@@ -68,6 +68,16 @@ const closeActiveTab = async () => {
   await runtime.tabs.remove(activeTab.id);
 };
 
+const detachActiveTab = async () => {
+  if (typeof runtime.windows?.create !== "function") return;
+
+  const tabs = await runtime.tabs.query({ currentWindow: true, active: true });
+  const activeTab = tabs[0];
+  if (!activeTab?.id) return;
+
+  await runtime.windows.create({ tabId: activeTab.id });
+};
+
 const restoreClosedTab = async () => {
   if (runtime.sessions?.restore) {
     await runtime.sessions.restore();
@@ -169,6 +179,10 @@ runtime.runtime.onMessage.addListener((message) => {
 
   if (message.type === "navbro.tab.restore") {
     void restoreClosedTab();
+  }
+
+  if (message.type === "navbro.tab.detach") {
+    void detachActiveTab();
   }
 
   if (message.type === "navbro.tab.stop_loading") {

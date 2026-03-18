@@ -57,7 +57,7 @@ Legend:
 - [ ] Move tab to end
 - [x] Go to tab playing audio / cycle (`ga`)
 - [ ] Toggle tab audio
-- [ ] Detach tab
+- [x] Detach tab (`tD`)
 - [ ] Push tab workflow
 
 ### History & URL motions
