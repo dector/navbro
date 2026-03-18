@@ -4,6 +4,7 @@
     pendingSequence: null,
     pendingTimerId: null,
     debugEntries: [],
+    debugViewIndex: 0,
     hintSession: null,
     lastInputIndex: null,
     inputAnchorEl: null,
@@ -33,6 +34,7 @@
       },
     },
   };
+  const DEBUG_VIEW_LINES = [0, 1, Math.max(1, KEY_CONFIG.debug?.maxEntries || 10)];
   const WEBEXT_RUNTIME = typeof browser !== "undefined" ? browser : typeof chrome !== "undefined" ? chrome : null;
 
   if (document.getElementById(BADGE_ID)) return;
@@ -91,13 +93,28 @@
   };
 
   const renderDebugPanel = () => {
-    debugPanel.textContent = STATE.debugEntries.join("\n");
+    const visibleLines = DEBUG_VIEW_LINES[STATE.debugViewIndex] ?? 0;
+
+    if (visibleLines <= 0) {
+      debugPanel.style.display = "none";
+      return;
+    }
+
+    debugPanel.style.display = "block";
+    debugPanel.textContent = STATE.debugEntries.slice(0, visibleLines).join("\n");
   };
 
   const pushDebug = (entry) => {
     STATE.debugEntries.unshift(entry);
     STATE.debugEntries = STATE.debugEntries.slice(0, KEY_CONFIG.debug.maxEntries);
     renderDebugPanel();
+  };
+
+  const toggleDebugView = () => {
+    STATE.debugViewIndex = (STATE.debugViewIndex + 1) % DEBUG_VIEW_LINES.length;
+    const visibleLines = DEBUG_VIEW_LINES[STATE.debugViewIndex] ?? 0;
+    const label = visibleLines === 0 ? "hidden" : visibleLines === 1 ? "1_line" : `${visibleLines}_lines`;
+    pushDebug(`?? -> debug_${label}`);
   };
 
   const mountUi = () => {
@@ -150,7 +167,7 @@
   const schedulePendingTimeout = () => {
     clearPendingTimer();
     STATE.pendingTimerId = window.setTimeout(() => {
-      if (STATE.pendingSequence === "g") {
+      if (STATE.pendingSequence !== null) {
         const timeoutSec = KEY_CONFIG.keySequence.timeoutMs / 1000;
         pushDebug(`<timeout ${timeoutSec}sec> -> none, reset`);
         resetPendingSequence();
@@ -768,6 +785,23 @@
       return true;
     }
 
+    if (STATE.pendingSequence === "?") {
+      if (isModifierKey(key)) {
+        pushDebug(`${key.toLowerCase()}(down)`);
+        return false;
+      }
+
+      if (key === "?") {
+        toggleDebugView();
+        resetPendingSequence();
+        return true;
+      }
+
+      pushDebug(`${key} -> none, reset`);
+      resetPendingSequence();
+      return true;
+    }
+
     if (handleTabNavigationHotkeys(event)) {
       return true;
     }
@@ -847,6 +881,14 @@
       renderModeBadge();
       schedulePendingTimeout();
       pushDebug("g -> waiting_next");
+      return true;
+    }
+
+    if (key === "?") {
+      STATE.pendingSequence = "?";
+      renderModeBadge();
+      schedulePendingTimeout();
+      pushDebug("? -> waiting_next");
       return true;
     }
 
@@ -969,7 +1011,7 @@
       return;
     }
 
-    if (STATE.pendingSequence === "g" && isModifierKey(event.key)) {
+    if (STATE.pendingSequence !== null && isModifierKey(event.key)) {
       pushDebug(`${event.key.toLowerCase()}(up)`);
     }
   };
