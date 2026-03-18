@@ -50,6 +50,23 @@ const restoreClosedTab = async () => {
   }
 };
 
+const stopActiveTabLoading = async () => {
+  const tabs = await runtime.tabs.query({ currentWindow: true, active: true });
+  const activeTab = tabs[0];
+  if (!activeTab?.id) return;
+
+  if (activeTab.status !== "loading") return;
+
+  if (typeof runtime.tabs.stopLoading === "function") {
+    await runtime.tabs.stopLoading(activeTab.id);
+    return;
+  }
+
+  if (typeof runtime.tabs.stop === "function") {
+    await runtime.tabs.stop(activeTab.id);
+  }
+};
+
 runtime.runtime.onMessage.addListener((message) => {
   if (!message || typeof message !== "object") return;
 
@@ -83,5 +100,9 @@ runtime.runtime.onMessage.addListener((message) => {
 
   if (message.type === "navbro.tab.restore") {
     void restoreClosedTab();
+  }
+
+  if (message.type === "navbro.tab.stop_loading") {
+    void stopActiveTabLoading();
   }
 });

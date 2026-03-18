@@ -83,7 +83,7 @@ Hint config (see `key-config.js`):
 - [ ] Focus input (alternate, `gI`)
 - [x] Search page (`/`, native Firefox find)
 - [ ] Reload (`R`)
-- [ ] Stop loading (`x`)
+- [x] Stop loading (`x`)
 - [ ] Yank URL (`yy`)
 - [ ] Yank title (`yt`)
 - [ ] Yank markdown (`ym`)

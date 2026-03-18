@@ -857,6 +857,12 @@
       return true;
     }
 
+    if (key === "x") {
+      sendRuntimeMessage({ type: "navbro.tab.stop_loading" });
+      pushDebug("x -> stop_loading");
+      return true;
+    }
+
     if (key === "i") {
       if (isActiveElementImportantInput()) {
         STATE.mode = "input";
