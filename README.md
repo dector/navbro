@@ -81,6 +81,7 @@ Hint config (see `key-config.js`):
 ### Editing, command-like actions, utilities
 - [x] Focus input (`gi`)
 - [ ] Focus input (alternate, `gI`)
+- [x] Search page (`/`, native Firefox find)
 - [ ] Reload (`R`)
 - [ ] Stop loading (`x`)
 - [ ] Yank URL (`yy`)

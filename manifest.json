@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "navbro",
-  "version": "0.0.2-snapshot",
+  "version": "0.0.2",
   "description": "Small keyboard-first Vim-like browsing extension for Firefox.",
   "browser_specific_settings": {
     "gecko": {

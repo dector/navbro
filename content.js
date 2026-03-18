@@ -236,6 +236,7 @@
     window.location.assign(target);
   };
 
+
   const isElementActuallyVisible = (element) => {
     if (!(element instanceof HTMLElement)) return false;
     if (!element.isConnected) return false;
@@ -932,6 +933,12 @@
       scrollByY(-KEY_CONFIG.scroll.fastStep);
       pushDebug("K -> scroll_up_fast");
       return true;
+    }
+
+    if (key === "/") {
+      // Let Firefox handle native Find (Quick Find / find bar) directly.
+      pushDebug("/ -> native_find");
+      return false;
     }
 
     if (key.length === 1) {
