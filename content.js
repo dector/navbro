@@ -214,11 +214,34 @@
     window.location.assign(target);
   };
 
+  const isElementActuallyVisible = (element) => {
+    if (!(element instanceof HTMLElement)) return false;
+    if (!element.isConnected) return false;
+
+    // Exclude elements that are structurally hidden.
+    if (element.closest("[hidden], [inert], dialog:not([open]), template")) {
+      return false;
+    }
+
+    let current = element;
+    while (current && current !== document.documentElement) {
+      const style = window.getComputedStyle(current);
+      if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") {
+        return false;
+      }
+      if (Number.parseFloat(style.opacity || "1") === 0) {
+        return false;
+      }
+      current = current.parentElement;
+    }
+
+    // Hidden overlay/dialog inputs usually have no client rects.
+    return element.getClientRects().length > 0;
+  };
+
   const isImportantInput = (element) => {
     if (!(element instanceof HTMLElement)) return false;
-
-    const style = window.getComputedStyle(element);
-    if (style.display === "none" || style.visibility === "hidden") return false;
+    if (!isElementActuallyVisible(element)) return false;
 
     if (element instanceof HTMLTextAreaElement) {
       return !element.disabled && !element.readOnly;
