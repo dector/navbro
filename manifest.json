@@ -3,6 +3,10 @@
   "name": "navbro",
   "version": "0.0.1",
   "description": "Small keyboard-first Vim-like browsing extension for Firefox.",
+  "permissions": ["tabs"],
+  "background": {
+    "scripts": ["background.js"]
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

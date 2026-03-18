@@ -20,6 +20,7 @@
     keySequence: { timeoutMs: 5000 },
     debug: { maxEntries: 10 },
   };
+  const WEBEXT_RUNTIME = typeof browser !== "undefined" ? browser : typeof chrome !== "undefined" ? chrome : null;
 
   if (document.getElementById(BADGE_ID)) return;
 
@@ -158,6 +159,19 @@
     window.scrollTo({ top: maxY, left: 0, behavior });
   };
 
+  const sendRuntimeMessage = (message) => {
+    if (!WEBEXT_RUNTIME?.runtime?.sendMessage) {
+      pushDebug("runtime_send -> unavailable");
+      return;
+    }
+
+    try {
+      void WEBEXT_RUNTIME.runtime.sendMessage(message);
+    } catch {
+      pushDebug("runtime_send -> failed");
+    }
+  };
+
   const handleNavInput = (event) => {
     const key = event.key;
     const lowerKey = key.length === 1 ? key.toLowerCase() : key;
@@ -178,6 +192,20 @@
       pushDebug(`${key} -> none, reset`);
       resetPendingSequence();
       return true;
+    }
+
+    if (event.altKey && event.ctrlKey && !event.metaKey && !event.shiftKey) {
+      if (lowerKey === "h") {
+        sendRuntimeMessage({ type: "navbro.tab.prev" });
+        pushDebug("Ctrl-Alt-h -> tab_prev");
+        return true;
+      }
+
+      if (lowerKey === "l") {
+        sendRuntimeMessage({ type: "navbro.tab.next" });
+        pushDebug("Ctrl-Alt-l -> tab_next");
+        return true;
+      }
     }
 
     if (event.altKey || event.metaKey) {
