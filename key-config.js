@@ -11,7 +11,7 @@
     scroll: Object.freeze({
       step: 120,
       fastStep: 360,
-      smoothScroll: true,
+      smoothScroll: false,
     }),
     keySequence: Object.freeze({
       timeoutMs: 5000,
