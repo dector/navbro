@@ -597,18 +597,19 @@
 
       label.style.position = "fixed";
       label.style.left = `${Math.round(centerX)}px`;
-      label.style.top = `${Math.round(bottomY - 4)}px`;
-      label.style.transform = "translateX(-50%)";
-      label.style.padding = "1px 4px";
+      label.style.top = `${Math.round(bottomY)}px`;
+      label.style.transform = "translate(-50%, -100%)";
+      label.style.padding = "2px 5px";
       label.style.borderRadius = "4px";
-      label.style.background = "rgba(191, 122, 138, 0.72)";
-      label.style.color = "#121212";
+      label.style.background = "rgba(20, 20, 24, 0.78)";
+      label.style.color = "#c9a227";
       label.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
-      label.style.fontSize = "10px";
+      label.style.fontSize = "13px";
       label.style.fontWeight = "600";
       label.style.lineHeight = "1.2";
       label.style.textTransform = "lowercase";
-      label.style.boxShadow = "0 0 0 1px rgba(17,17,17,0.25)";
+      label.style.border = "1px solid rgba(255, 255, 255, 0.9)";
+      label.style.boxShadow = "0 2px 6px rgba(0,0,0,0.35)";
       overlay.appendChild(label);
 
       return { code, element, label };
