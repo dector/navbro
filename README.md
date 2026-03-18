@@ -7,49 +7,88 @@ Main inspiration: [Tridactyl](https://github.com/tridactyl/tridactyl), but this 
 Reference config for planned keybindings/features:
 [dector/dotfiles `tridactylrc`](https://github.com/dector/dotfiles/blob/main/private_dot_config/tridactyl/tridactylrc)
 
-## Current status
+## TODO checklist
 
-Initial scaffold only:
-- Firefox extension loads on every page
-- Shows a small `Hi` badge in the top-right corner
+Legend:
+- `[x]` implemented
+- `[ ]` planned
 
-## Planned features (first roadmap)
+### Core / modes
+- [x] Extension loads on every page
+- [x] Mode badge UI (`nav` / `pass`)
+- [x] Debug panel UI for key logs
+- [x] Mode toggle (`Ctrl-Insert`)
+- [x] Multi-key sequence support (initial, for `g...`)
+- [x] Sequence timeout handling
+- [ ] Escape-based reset to normal mode (`Esc`)
+- [ ] Repeat last action (`.`)
 
-Based on the referenced Tridactyl config, the first target feature set is:
+### Navigation & scrolling
+- [x] Scroll down (`j`)
+- [x] Scroll up (`k`)
+- [x] Scroll down fast (`J`)
+- [x] Scroll up fast (`K`)
+- [x] Half-page down (`Ctrl-d`)
+- [x] Half-page up (`Ctrl-u`)
+- [x] Full-page down (`Ctrl-f`)
+- [x] Full-page up (`Ctrl-b`)
+- [x] Jump to top (`gg`)
+- [x] Jump to bottom (`G`)
 
-### 1) Navigation & scrolling
-- Vim-style vertical scrolling (`j`, `k`)
-- Faster/slower variants (`J`, `K`, etc.)
-- Page scrolling (`Ctrl-d`, `Ctrl-u`, `Ctrl-f`, `Ctrl-b`)
-- Jump to top/bottom (`gg`, `G`)
+### Tab operations
+- [x] Previous tab (`Ctrl-Alt-h`)
+- [x] Next tab (`Ctrl-Alt-l`)
+- [ ] Previous tab (`H`)
+- [ ] Next tab (`L`)
+- [ ] Previous tab (`(`)
+- [ ] Next tab (`)`)
+- [ ] First tab (`gh`)
+- [ ] Last tab (`gl`)
+- [ ] Open tab (`gf`)
+- [ ] Close tab (`w`)
+- [ ] Restore closed tab (`u`)
+- [ ] Restore closed window/tab stack (`U`)
+- [ ] Move tab right (`>>`)
+- [ ] Move tab left (`<<`)
+- [ ] Move tab to start
+- [ ] Move tab to end
+- [ ] Toggle tab audio
+- [ ] Detach tab
+- [ ] Push tab workflow
 
-### 2) Tab operations
-- Next/previous tab (`H`, `L`, `(`, `)`)
-- First/last tab (`gh`, `gl`)
-- Open/close/restore tabs (`gf`, `w`, `u`, `U`)
-- Move tabs (`>>`, `<<`, start/end)
-- Audio toggle / detach / push workflows
+### History & URL motions
+- [ ] History back (`'`)
+- [ ] History back/alt binding (`-`)
+- [ ] History forward (`+`)
+- [ ] URL parent (`gu`)
+- [ ] URL root (`gU`)
+- [ ] Jump list back (`Ctrl-o`)
+- [ ] Jump list forward (`Ctrl-i`)
 
-### 3) History & URL motions
-- Back/forward bindings (`'`, `-`, `+`)
-- URL parent/root navigation (`gu`, `gU`)
-- Jump list navigation (`Ctrl-o`, `Ctrl-i`)
+### Hints & link interaction
+- [ ] Hint mode (`f`)
+- [ ] Hint mode in new tab (`F`)
+- [ ] Hint mode (alternate, `T`)
+- [ ] Hint action family (`;...`)
 
-### 4) Hints & link interaction
-- Hint mode (`f`, `F`, `T`)
-- Open/copy/download/image-focused hint actions (`;...` family)
-
-### 5) Editing, command-like actions, and utilities
-- Focus input (`gi`, `gI`)
-- Reload/stop (`R`, `x`)
-- Copy/yank helpers (`yy`, `yt`, `ym`, `yq`)
-- Bookmark shortcuts (`b`, `B`)
-- Zoom controls (`zz`, `zi`, `zd`, `zI`, `zD`, `zm`, `zM`)
-
-### 6) Modes and key handling
-- Minimal normal/ignore mode handling
-- Escape-based reset to normal mode
-- Repeat last action (`.`)
+### Editing, command-like actions, utilities
+- [ ] Focus input (`gi`)
+- [ ] Focus input (alternate, `gI`)
+- [ ] Reload (`R`)
+- [ ] Stop loading (`x`)
+- [ ] Yank URL (`yy`)
+- [ ] Yank title (`yt`)
+- [ ] Yank markdown (`ym`)
+- [ ] Yank quote (`yq`)
+- [ ] Bookmark (`b`)
+- [ ] Bookmark in new context (`B`)
+- [ ] Zoom reset (`zz`)
+- [ ] Zoom in (`zi`)
+- [ ] Zoom out (`zd`)
+- [ ] Zoom in (strong, `zI`)
+- [ ] Zoom out (strong, `zD`)
+- [ ] Zoom max preset (`zm`)
+- [ ] Zoom min preset (`zM`)
 
 ## Non-goals (for now)
 
@@ -57,11 +96,3 @@ Based on the referenced Tridactyl config, the first target feature set is:
 - Full command-line parser from day one
 - Large, complex configuration surface in the first versions
 - Horizontal scrolling bindings (`h`, `l`) are not planned for now (deferred)
-
-## Development notes
-
-This repo is intentionally starting tiny. The next steps are:
-1. Add keybinding engine with multi-key sequence support
-2. Implement scrolling + tab navigation primitives
-3. Add simple hint mode
-4. Add persistent user config

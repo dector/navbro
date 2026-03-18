@@ -19,6 +19,23 @@ const activateAdjacentTab = async (direction) => {
   await runtime.tabs.update(targetTab.id, { active: true });
 };
 
+const moveActiveTab = async (direction) => {
+  const tabs = await getOrderedTabs();
+  if (!tabs.length) return;
+
+  const activeIndex = tabs.findIndex((tab) => tab.active);
+  if (activeIndex === -1) return;
+
+  const activeTab = tabs[activeIndex];
+  if (!activeTab?.id) return;
+
+  const targetIndex = Math.min(Math.max(activeIndex + direction, 0), tabs.length - 1);
+  if (targetIndex === activeIndex) return;
+
+  await runtime.tabs.move(activeTab.id, { index: targetIndex });
+  await runtime.tabs.update(activeTab.id, { active: true });
+};
+
 runtime.runtime.onMessage.addListener((message) => {
   if (!message || typeof message !== "object") return;
 
@@ -28,5 +45,13 @@ runtime.runtime.onMessage.addListener((message) => {
 
   if (message.type === "navbro.tab.next") {
     void activateAdjacentTab(1);
+  }
+
+  if (message.type === "navbro.tab.move_prev") {
+    void moveActiveTab(-1);
+  }
+
+  if (message.type === "navbro.tab.move_next") {
+    void moveActiveTab(1);
   }
 });
