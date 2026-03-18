@@ -61,8 +61,8 @@ Legend:
 
 ### History & URL motions
 - [x] History back (`'`)
-- [ ] History back/alt binding (`-`)
-- [ ] History forward (`+`)
+- [x] History back/alt binding (`-`)
+- [x] History forward (`+`)
 - [x] URL parent (`gu`)
 - [x] URL root (`gU`)
 - [ ] Jump list back (`Ctrl-o`)

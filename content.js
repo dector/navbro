@@ -184,7 +184,8 @@
     {
       title: "Tabs & history",
       rows: [
-        ["w / u / '", "close tab / restore tab / history back"],
+        ["w / u", "close tab / restore tab"],
+        ["' / - / +", "history back / back / forward"],
         ["Ctrl-Alt-h / l", "tab prev / next"],
         ["Alt-Shift-h / l", "move tab left / right"],
       ],
@@ -1224,6 +1225,18 @@
     if (key === "'") {
       window.history.back();
       pushDebug("' -> history_back");
+      return true;
+    }
+
+    if (key === "-") {
+      window.history.back();
+      pushDebug("- -> history_back");
+      return true;
+    }
+
+    if (key === "+") {
+      window.history.forward();
+      pushDebug("+ -> history_forward");
       return true;
     }
 
