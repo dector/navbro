@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "navbro",
+  "version": "0.0.1",
+  "description": "Small keyboard-first Vim-like browsing extension for Firefox.",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
