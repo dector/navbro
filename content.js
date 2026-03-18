@@ -281,13 +281,34 @@
   };
 
   const activateHint = (item) => {
+    const session = STATE.hintSession;
+    if (!session) return;
+
+    const action = session.action || "current";
     clearHintSession();
+
+    if (action === "tab-bg" || action === "tab-fg") {
+      const href = item.element.href;
+      if (!href) {
+        pushDebug(`hint -> no_href ${item.code}`);
+        return;
+      }
+
+      sendRuntimeMessage({
+        type: "navbro.link.open_tab",
+        url: href,
+        active: action === "tab-fg",
+      });
+      pushDebug(`hint -> open_${action === "tab-fg" ? "fg" : "bg"} ${item.code}`);
+      return;
+    }
+
     item.element.focus({ preventScroll: true });
     item.element.click();
     pushDebug(`hint -> open ${item.code}`);
   };
 
-  const startHintSession = () => {
+  const startHintSession = (action = "current") => {
     if (!document.body) return false;
 
     const links = Array.from(document.querySelectorAll("a[href]"));
@@ -337,10 +358,11 @@
     });
 
     document.body.appendChild(overlay);
-    STATE.hintSession = { typed: "", items, overlay, alphabet };
+    STATE.hintSession = { typed: "", items, overlay, alphabet, action };
     STATE.mode = "hint";
     renderModeBadge();
-    pushDebug(`f -> hint_mode (${items.length})`);
+    const actionLabel = action === "tab-fg" ? "T" : action === "tab-bg" ? "F" : "f";
+    pushDebug(`${actionLabel} -> hint_mode (${items.length})`);
     return true;
   };
 
@@ -491,6 +513,12 @@
       return false;
     }
 
+    if (key === "'") {
+      window.history.back();
+      pushDebug("' -> history_back");
+      return true;
+    }
+
     if (key === "g") {
       STATE.pendingSequence = "g";
       renderModeBadge();
@@ -506,7 +534,15 @@
     }
 
     if (key === "f") {
-      return startHintSession();
+      return startHintSession("current");
+    }
+
+    if (key === "F") {
+      return startHintSession("tab-bg");
+    }
+
+    if (key === "T") {
+      return startHintSession("tab-fg");
     }
 
     if (key === "j") {

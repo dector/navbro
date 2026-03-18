@@ -54,4 +54,12 @@ runtime.runtime.onMessage.addListener((message) => {
   if (message.type === "navbro.tab.move_next") {
     void moveActiveTab(1);
   }
+
+  if (message.type === "navbro.link.open_tab") {
+    const url = typeof message.url === "string" ? message.url : null;
+    if (!url) return;
+
+    const active = !!message.active;
+    void runtime.tabs.create({ url, active });
+  }
 });

@@ -57,7 +57,7 @@ Legend:
 - [ ] Push tab workflow
 
 ### History & URL motions
-- [ ] History back (`'`)
+- [x] History back (`'`)
 - [ ] History back/alt binding (`-`)
 - [ ] History forward (`+`)
 - [x] URL parent (`gu`)
@@ -67,8 +67,8 @@ Legend:
 
 ### Hints & link interaction
 - [x] Hint mode (`f`)
-- [ ] Hint mode in new tab (`F`)
-- [ ] Hint mode (alternate, `T`)
+- [x] Hint mode in new tab (`F`)
+- [x] Hint mode (alternate, `T`)
 - [ ] Hint action family (`;...`)
 
 ### Editing, command-like actions, utilities
