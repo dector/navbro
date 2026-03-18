@@ -6,10 +6,12 @@
     debugEntries: [],
     hintSession: null,
     lastInputIndex: null,
+    inputAnchorEl: null,
   };
 
   const BADGE_ID = "navbro-mode-badge";
   const DEBUG_ID = "navbro-debug-panel";
+  const INPUT_ANCHOR_CLASS = "navbro-input-anchor";
   const KEY_CONFIG = window.NAVBRO_KEY_CONFIG || {
     modeToggle: { key: "Insert", ctrl: true, alt: false, shift: false, meta: false },
     scroll: {
@@ -66,6 +68,14 @@
   debugPanel.style.pointerEvents = "none";
   debugPanel.style.whiteSpace = "pre-wrap";
 
+  const inputAnchorStyle = document.createElement("style");
+  inputAnchorStyle.textContent = `
+    .${INPUT_ANCHOR_CLASS} {
+      outline: 2px solid rgba(122, 189, 255, 0.9) !important;
+      outline-offset: 1px !important;
+    }
+  `;
+
   const renderModeBadge = () => {
     const isWaitingNext = STATE.pendingSequence !== null;
     const isHint = STATE.mode === "hint";
@@ -96,6 +106,10 @@
     if (!document.getElementById(DEBUG_ID)) {
       renderDebugPanel();
       document.body.appendChild(debugPanel);
+    }
+
+    if (!document.head.contains(inputAnchorStyle)) {
+      document.head.appendChild(inputAnchorStyle);
     }
 
     return true;
@@ -234,22 +248,66 @@
     return isImportantInput(document.activeElement);
   };
 
-  const focusNextImportantInput = () => {
+  const setInputAnchor = (element) => {
+    if (STATE.inputAnchorEl && STATE.inputAnchorEl !== element) {
+      STATE.inputAnchorEl.classList.remove(INPUT_ANCHOR_CLASS);
+    }
+
+    STATE.inputAnchorEl = element instanceof HTMLElement ? element : null;
+    if (STATE.inputAnchorEl) {
+      STATE.inputAnchorEl.classList.add(INPUT_ANCHOR_CLASS);
+    }
+  };
+
+  const focusAdjacentImportantInput = (direction, label) => {
     const inputs = getImportantInputs();
     if (!inputs.length) {
-      pushDebug("gi -> no_input");
+      pushDebug(`${label} -> no_input`);
       return true;
     }
 
     const activeIndex = inputs.indexOf(document.activeElement);
-    const baseIndex = activeIndex >= 0 ? activeIndex : STATE.lastInputIndex ?? -1;
-    const targetIndex = (baseIndex + 1 + inputs.length) % inputs.length;
+    const anchorIndex = inputs.indexOf(STATE.inputAnchorEl);
+    const knownIndex = STATE.lastInputIndex ?? -1;
+    const baseIndex = activeIndex >= 0 ? activeIndex : anchorIndex >= 0 ? anchorIndex : knownIndex;
+    const targetIndex = (baseIndex + direction + inputs.length) % inputs.length;
     const target = inputs[targetIndex];
 
     target.focus();
+    setInputAnchor(target);
     STATE.lastInputIndex = targetIndex;
-    pushDebug(`gi -> focus_input ${targetIndex + 1}/${inputs.length}`);
+    pushDebug(`${label} -> focus_input ${targetIndex + 1}/${inputs.length}`);
     return true;
+  };
+
+  const focusNextImportantInput = () => {
+    return focusAdjacentImportantInput(1, "gi");
+  };
+
+  const syncModeWithFocusedInput = () => {
+    if (STATE.mode === "pass" || STATE.mode === "hint") {
+      return;
+    }
+
+    const activeEl = document.activeElement;
+    const focusedInput = isImportantInput(activeEl);
+
+    if (focusedInput) {
+      setInputAnchor(activeEl);
+    }
+
+    if (focusedInput && STATE.mode !== "input") {
+      STATE.mode = "input";
+      renderModeBadge();
+      pushDebug("focus -> mode_input");
+      return;
+    }
+
+    if (!focusedInput && STATE.mode === "input") {
+      STATE.mode = "nav";
+      renderModeBadge();
+      pushDebug("focus -> mode_nav");
+    }
   };
 
   const getHintAlphabet = (mode = KEY_CONFIG.hints?.alphabetMode || "both") => {
@@ -457,6 +515,26 @@
     return true;
   };
 
+  const handleInputJumpInputOrNav = (event) => {
+    if (STATE.mode !== "nav" && STATE.mode !== "input") {
+      return false;
+    }
+
+    if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return false;
+    }
+
+    if (event.key === "]") {
+      return focusAdjacentImportantInput(1, "Alt-]");
+    }
+
+    if (event.key === "[") {
+      return focusAdjacentImportantInput(-1, "Alt-[");
+    }
+
+    return false;
+  };
+
   const handleNavInput = (event) => {
     const key = event.key;
     const lowerKey = key.length === 1 ? key.toLowerCase() : key;
@@ -599,6 +677,14 @@
         return true;
       }
 
+      if (isImportantInput(STATE.inputAnchorEl)) {
+        STATE.inputAnchorEl.focus();
+        STATE.mode = "input";
+        renderModeBadge();
+        pushDebug("i -> mode_input(anchor)");
+        return true;
+      }
+
       pushDebug("i -> none");
       return true;
     }
@@ -669,6 +755,39 @@
       return;
     }
 
+    if (event.key === "Escape" && STATE.mode !== "pass") {
+      event.preventDefault();
+      event.stopPropagation();
+
+      resetPendingSequence();
+      clearHintSession({ restoreNavMode: false });
+
+      if (STATE.mode === "input") {
+        const activeEl = document.activeElement;
+        if (isImportantInput(activeEl)) {
+          setInputAnchor(activeEl);
+        }
+
+        if (activeEl instanceof HTMLElement) {
+          activeEl.blur();
+        }
+      }
+
+      if (STATE.mode !== "nav") {
+        STATE.mode = "nav";
+        renderModeBadge();
+      }
+
+      pushDebug("Esc -> mode_nav");
+      return;
+    }
+
+    if (handleInputJumpInputOrNav(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     if (STATE.mode === "pass" || STATE.mode === "input") {
       // Passthrough-like modes: ignore all keys except the mode toggle.
       return;
@@ -698,14 +817,20 @@
 
   window.addEventListener("keydown", onKeyDown, true);
   window.addEventListener("keyup", onKeyUp, true);
+  window.addEventListener("focusin", syncModeWithFocusedInput, true);
 
   if (!mountUi()) {
     const observer = new MutationObserver(() => {
-      if (mountUi()) observer.disconnect();
+      if (mountUi()) {
+        syncModeWithFocusedInput();
+        observer.disconnect();
+      }
     });
     observer.observe(document.documentElement || document, {
       childList: true,
       subtree: true,
     });
+  } else {
+    syncModeWithFocusedInput();
   }
 })();

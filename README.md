@@ -21,7 +21,7 @@ Legend:
 - [x] Multi-key sequence support (initial, for `g...`)
 - [x] Sequence timeout handling
 - [x] Input passthrough mode (`input`, entered by `i` on focused input)
-- [ ] Escape-based reset to normal mode (`Esc`)
+- [x] Escape-based reset to normal mode (`Esc`)
 - [ ] Repeat last action (`.`)
 
 ### Navigation & scrolling
