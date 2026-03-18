@@ -384,16 +384,33 @@
     }
   };
 
-  const indexToHintCode = (index, alphabet) => {
+  const getHintCodeLength = (count, base) => {
+    let length = 1;
+    let capacity = base;
+
+    while (count > capacity) {
+      length += 1;
+      capacity *= base;
+    }
+
+    return length;
+  };
+
+  const indexToHintCode = (index, alphabet, fixedLength = 1) => {
     const chars = alphabet.split("");
     const base = chars.length;
+
     let n = index;
     let code = "";
 
     do {
       code = chars[n % base] + code;
-      n = Math.floor(n / base) - 1;
-    } while (n >= 0);
+      n = Math.floor(n / base);
+    } while (n > 0);
+
+    while (code.length < fixedLength) {
+      code = chars[0] + code;
+    }
 
     return code;
   };
@@ -466,16 +483,28 @@
     pushDebug("hint -> exit");
   };
 
+  const getMatchingHintItems = (session, typed) => {
+    return session.items.filter((item) => item.code.startsWith(typed));
+  };
+
   const refreshHintSession = () => {
     const session = STATE.hintSession;
     if (!session) return;
 
     const typed = session.typed;
+    const matches = getMatchingHintItems(session, typed);
     let visibleCount = 0;
 
     for (const item of session.items) {
       const isVisible = item.code.startsWith(typed);
       item.label.style.display = isVisible ? "block" : "none";
+
+      const isExactAmbiguous =
+        typed.length > 0 &&
+        item.code === typed &&
+        matches.some((candidate) => candidate.code.length > typed.length);
+      item.label.style.outline = isExactAmbiguous ? "1px solid rgba(17, 17, 17, 0.9)" : "none";
+
       if (isVisible) visibleCount += 1;
     }
 
@@ -536,8 +565,11 @@
     overlay.style.zIndex = "2147483646";
     overlay.style.pointerEvents = "none";
 
+    const chars = alphabet.split("");
+    const codeLength = getHintCodeLength(targets.length, chars.length);
+
     const items = targets.map((element, index) => {
-      const code = indexToHintCode(index, alphabet);
+      const code = indexToHintCode(index, alphabet, codeLength);
       const rect = element.getBoundingClientRect();
 
       const label = document.createElement("div");
@@ -589,6 +621,14 @@
       return true;
     }
 
+    if (key === "Enter") {
+      const exact = session.items.find((item) => item.code === session.typed);
+      if (exact) {
+        activateHint(exact);
+      }
+      return true;
+    }
+
     if (key.length !== 1) {
       return true;
     }
@@ -602,9 +642,16 @@
     refreshHintSession();
 
     const exact = session.items.find((item) => item.code === session.typed);
-    if (exact) {
-      activateHint(exact);
+    if (!exact) {
       return true;
+    }
+
+    const hasLongerMatches = getMatchingHintItems(session, session.typed).some(
+      (item) => item.code.length > session.typed.length,
+    );
+
+    if (!hasLongerMatches) {
+      activateHint(exact);
     }
 
     return true;
