@@ -22,6 +22,7 @@ PY
 EXT_NAME="$(read_manifest_field name)"
 EXT_VERSION="$(read_manifest_field version)"
 OUT_FILE="$DIST_DIR/${EXT_NAME}-${EXT_VERSION}.xpi"
+SOURCES_ZIP="$DIST_DIR/sources.zip"
 
 TMP_DIR="$(mktemp -d)"
 cleanup() {
@@ -49,4 +50,11 @@ done
   zip -qr "$OUT_FILE" .
 )
 
+(
+  cd "$ROOT_DIR"
+  rm -f "$SOURCES_ZIP"
+  zip -qr "$SOURCES_ZIP" . -x "dist/*" ".git/*" ".pi/*"
+)
+
 echo "Built: $OUT_FILE"
+echo "Packaged sources: $SOURCES_ZIP"
