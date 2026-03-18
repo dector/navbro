@@ -1,10 +1,11 @@
 (() => {
   const STATE = {
-    mode: "nav", // 'nav' | 'pass' | 'hint'
+    mode: "nav", // 'nav' | 'pass' | 'hint' | 'input'
     pendingSequence: null,
     pendingTimerId: null,
     debugEntries: [],
     hintSession: null,
+    lastInputIndex: null,
   };
 
   const BADGE_ID = "navbro-mode-badge";
@@ -68,9 +69,10 @@
   const renderModeBadge = () => {
     const isWaitingNext = STATE.pendingSequence !== null;
     const isHint = STATE.mode === "hint";
+    const isInput = STATE.mode === "input";
     badge.textContent = STATE.mode;
-    badge.style.background = isHint ? "#7cc7e8" : isWaitingNext ? "#f2c48d" : "#111";
-    badge.style.color = isHint || isWaitingNext ? "#1f1f1f" : "#fff";
+    badge.style.background = isHint ? "#7cc7e8" : isInput ? "#9ad7a5" : isWaitingNext ? "#f2c48d" : "#111";
+    badge.style.color = isHint || isInput || isWaitingNext ? "#1f1f1f" : "#fff";
   };
 
   const renderDebugPanel = () => {
@@ -196,6 +198,58 @@
     const url = new URL(window.location.href);
     const target = `${url.origin}/`;
     window.location.assign(target);
+  };
+
+  const isImportantInput = (element) => {
+    if (!(element instanceof HTMLElement)) return false;
+
+    const style = window.getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+
+    if (element instanceof HTMLTextAreaElement) {
+      return !element.disabled && !element.readOnly;
+    }
+
+    if (element instanceof HTMLInputElement) {
+      if (element.disabled || element.readOnly) return false;
+      const type = (element.type || "text").toLowerCase();
+      const blocked = new Set(["hidden", "checkbox", "radio", "button", "submit", "reset", "file", "image", "range", "color"]);
+      return !blocked.has(type);
+    }
+
+    if (element.isContentEditable) {
+      return true;
+    }
+
+    const role = element.getAttribute("role");
+    return role === "textbox";
+  };
+
+  const getImportantInputs = () => {
+    const candidates = Array.from(document.querySelectorAll("input, textarea, [contenteditable='true'], [role='textbox']"));
+    return candidates.filter(isImportantInput);
+  };
+
+  const isActiveElementImportantInput = () => {
+    return isImportantInput(document.activeElement);
+  };
+
+  const focusNextImportantInput = () => {
+    const inputs = getImportantInputs();
+    if (!inputs.length) {
+      pushDebug("gi -> no_input");
+      return true;
+    }
+
+    const activeIndex = inputs.indexOf(document.activeElement);
+    const baseIndex = activeIndex >= 0 ? activeIndex : STATE.lastInputIndex ?? -1;
+    const targetIndex = (baseIndex + 1 + inputs.length) % inputs.length;
+    const target = inputs[targetIndex];
+
+    target.focus();
+    STATE.lastInputIndex = targetIndex;
+    pushDebug(`gi -> focus_input ${targetIndex + 1}/${inputs.length}`);
+    return true;
   };
 
   const getHintAlphabet = (mode = KEY_CONFIG.hints?.alphabetMode || "both") => {
@@ -420,6 +474,12 @@
         return true;
       }
 
+      if (key === "i") {
+        focusNextImportantInput();
+        resetPendingSequence();
+        return true;
+      }
+
       if (key === "u") {
         navigateToUrlParent();
         pushDebug("gu -> url_parent, reset");
@@ -531,6 +591,18 @@
       return true;
     }
 
+    if (key === "i") {
+      if (isActiveElementImportantInput()) {
+        STATE.mode = "input";
+        renderModeBadge();
+        pushDebug("i -> mode_input");
+        return true;
+      }
+
+      pushDebug("i -> none");
+      return true;
+    }
+
     if (key === "g") {
       STATE.pendingSequence = "g";
       renderModeBadge();
@@ -597,8 +669,8 @@
       return;
     }
 
-    if (STATE.mode === "pass") {
-      // Passthrough mode: ignore all keys except the mode toggle.
+    if (STATE.mode === "pass" || STATE.mode === "input") {
+      // Passthrough-like modes: ignore all keys except the mode toggle.
       return;
     }
 
