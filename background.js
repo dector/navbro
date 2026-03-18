@@ -36,6 +36,20 @@ const moveActiveTab = async (direction) => {
   await runtime.tabs.update(activeTab.id, { active: true });
 };
 
+const closeActiveTab = async () => {
+  const tabs = await runtime.tabs.query({ currentWindow: true, active: true });
+  const activeTab = tabs[0];
+  if (!activeTab?.id) return;
+
+  await runtime.tabs.remove(activeTab.id);
+};
+
+const restoreClosedTab = async () => {
+  if (runtime.sessions?.restore) {
+    await runtime.sessions.restore();
+  }
+};
+
 runtime.runtime.onMessage.addListener((message) => {
   if (!message || typeof message !== "object") return;
 
@@ -61,5 +75,13 @@ runtime.runtime.onMessage.addListener((message) => {
 
     const active = !!message.active;
     void runtime.tabs.create({ url, active });
+  }
+
+  if (message.type === "navbro.tab.close") {
+    void closeActiveTab();
+  }
+
+  if (message.type === "navbro.tab.restore") {
+    void restoreClosedTab();
   }
 });

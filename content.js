@@ -519,6 +519,18 @@
       return true;
     }
 
+    if (key === "w") {
+      sendRuntimeMessage({ type: "navbro.tab.close" });
+      pushDebug("w -> tab_close");
+      return true;
+    }
+
+    if (key === "u") {
+      sendRuntimeMessage({ type: "navbro.tab.restore" });
+      pushDebug("u -> tab_restore");
+      return true;
+    }
+
     if (key === "g") {
       STATE.pendingSequence = "g";
       renderModeBadge();
