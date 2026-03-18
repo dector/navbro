@@ -33,6 +33,7 @@ mkdir -p "$DIST_DIR"
 
 # Core extension files
 cp "$ROOT_DIR/manifest.json" "$TMP_DIR/"
+cp "$ROOT_DIR/background.js" "$TMP_DIR/"
 cp "$ROOT_DIR/content.js" "$TMP_DIR/"
 cp "$ROOT_DIR/key-config.js" "$TMP_DIR/"
 

@@ -3,6 +3,14 @@
   "name": "navbro",
   "version": "0.0.1",
   "description": "Small keyboard-first Vim-like browsing extension for Firefox.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "navbro@dector.space",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
   "permissions": ["tabs", "sessions"],
   "background": {
     "scripts": ["background.js"]
