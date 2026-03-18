@@ -3,6 +3,9 @@
     mode: "nav", // 'nav' | 'pass' | 'hint' | 'input'
     pendingSequence: null,
     pendingTimerId: null,
+    toastHideTimerId: null,
+    toastCleanupTimerId: null,
+    qrOverlayEl: null,
     debugEntries: [],
     debugViewIndex: 0,
     hintSession: null,
@@ -12,6 +15,8 @@
 
   const BADGE_ID = "navbro-mode-badge";
   const DEBUG_ID = "navbro-debug-panel";
+  const TOAST_ID = "navbro-toast";
+  const QR_OVERLAY_ID = "navbro-qr-overlay";
   const INPUT_ANCHOR_CLASS = "navbro-input-anchor";
   const KEY_CONFIG = window.NAVBRO_KEY_CONFIG || {
     modeToggle: { key: "Insert", ctrl: true, alt: false, shift: false, meta: false },
@@ -82,6 +87,27 @@
   debugPanel.style.pointerEvents = "none";
   debugPanel.style.whiteSpace = "pre-wrap";
 
+  const toast = document.createElement("div");
+  toast.id = TOAST_ID;
+  toast.style.position = "fixed";
+  toast.style.top = "12px";
+  toast.style.left = "50%";
+  toast.style.transform = "translate(-50%, -8px)";
+  toast.style.zIndex = "2147483647";
+  toast.style.padding = "8px 12px";
+  toast.style.borderRadius = "8px";
+  toast.style.background = "rgba(17, 17, 17, 0.92)";
+  toast.style.color = "#f5f5f5";
+  toast.style.border = "1px solid rgba(245, 245, 245, 0.5)";
+  toast.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+  toast.style.fontSize = "12px";
+  toast.style.lineHeight = "1.2";
+  toast.style.boxShadow = "0 4px 16px rgba(0,0,0,0.28)";
+  toast.style.pointerEvents = "none";
+  toast.style.opacity = "0";
+  toast.style.display = "none";
+  toast.style.transition = "opacity 120ms ease-out, transform 120ms ease-out";
+
   const inputAnchorStyle = document.createElement("style");
   inputAnchorStyle.textContent = `
     .${INPUT_ANCHOR_CLASS} {
@@ -124,6 +150,42 @@
     pushDebug(`?? -> debug_${label}`);
   };
 
+  const showToast = (message, durationMs = 2000) => {
+    if (!document.body) return;
+
+    if (STATE.toastHideTimerId !== null) {
+      clearTimeout(STATE.toastHideTimerId);
+      STATE.toastHideTimerId = null;
+    }
+
+    if (STATE.toastCleanupTimerId !== null) {
+      clearTimeout(STATE.toastCleanupTimerId);
+      STATE.toastCleanupTimerId = null;
+    }
+
+    toast.textContent = message;
+    toast.style.display = "block";
+    toast.style.opacity = "0";
+    toast.style.transform = "translate(-50%, -8px)";
+
+    window.requestAnimationFrame(() => {
+      toast.style.opacity = "1";
+      toast.style.transform = "translate(-50%, 0px)";
+    });
+
+    STATE.toastHideTimerId = window.setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.transform = "translate(-50%, -8px)";
+
+      STATE.toastCleanupTimerId = window.setTimeout(() => {
+        toast.style.display = "none";
+        STATE.toastCleanupTimerId = null;
+      }, 140);
+
+      STATE.toastHideTimerId = null;
+    }, durationMs);
+  };
+
   const mountUi = () => {
     if (!document.body) return false;
 
@@ -135,6 +197,10 @@
     if (!document.getElementById(DEBUG_ID)) {
       renderDebugPanel();
       document.body.appendChild(debugPanel);
+    }
+
+    if (!document.getElementById(TOAST_ID)) {
+      document.body.appendChild(toast);
     }
 
     if (!document.head.contains(inputAnchorStyle)) {
@@ -239,6 +305,126 @@
         reset: Number(zoomConfig.presets?.reset) || 1,
       },
     });
+  };
+
+  const copyTextToClipboard = async (text) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      // Fallback to legacy copy path below.
+    }
+
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.top = "-9999px";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const copied = document.execCommand("copy");
+      textarea.remove();
+      return copied;
+    } catch {
+      return false;
+    }
+  };
+
+  const yankCurrentUrl = () => {
+    const text = window.location.href;
+    void copyTextToClipboard(text).then((ok) => {
+      if (ok) {
+        showToast("Link copied");
+      }
+      pushDebug(ok ? "yy -> yank_url" : "yy -> yank_url_failed");
+    });
+  };
+
+  const yankTitleAndUrl = () => {
+    const text = `${document.title}\n${window.location.href}`;
+    void copyTextToClipboard(text).then((ok) => {
+      if (ok) {
+        showToast("Title + link copied");
+      }
+      pushDebug(ok ? "yY -> yank_title_url" : "yY -> yank_title_url_failed");
+    });
+  };
+
+  const closeQrOverlay = () => {
+    if (!STATE.qrOverlayEl) return false;
+    STATE.qrOverlayEl.remove();
+    STATE.qrOverlayEl = null;
+    pushDebug("yq -> qr_close");
+    return true;
+  };
+
+  const showQrOverlayForCurrentUrl = () => {
+    if (!document.body) return false;
+
+    if (STATE.qrOverlayEl) {
+      STATE.qrOverlayEl.remove();
+      STATE.qrOverlayEl = null;
+    }
+
+    const url = window.location.href;
+    const encodedUrl = encodeURIComponent(url);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodedUrl}`;
+
+    const overlay = document.createElement("div");
+    overlay.id = QR_OVERLAY_ID;
+    overlay.style.position = "fixed";
+    overlay.style.left = "0";
+    overlay.style.top = "0";
+    overlay.style.width = "100vw";
+    overlay.style.height = "100vh";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+    overlay.style.background = "rgba(10, 10, 14, 0.72)";
+    overlay.style.backdropFilter = "blur(1px)";
+    overlay.style.zIndex = "2147483646";
+    overlay.style.pointerEvents = "none";
+
+    const card = document.createElement("div");
+    card.style.display = "flex";
+    card.style.flexDirection = "column";
+    card.style.alignItems = "center";
+    card.style.gap = "8px";
+    card.style.padding = "36px";
+    card.style.borderRadius = "12px";
+    card.style.background = "rgba(17, 17, 17, 0.92)";
+    card.style.border = "1px solid rgba(245, 245, 245, 0.35)";
+    card.style.boxShadow = "0 10px 26px rgba(0, 0, 0, 0.45)";
+
+    const image = document.createElement("img");
+    image.src = qrUrl;
+    image.alt = "Page URL QR";
+    image.width = 320;
+    image.height = 320;
+    image.style.width = "320px";
+    image.style.height = "320px";
+    image.style.borderRadius = "8px";
+    image.style.background = "#fff";
+
+    const caption = document.createElement("div");
+    caption.textContent = "Esc to close";
+    caption.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    caption.style.fontSize = "11px";
+    caption.style.color = "rgba(245, 245, 245, 0.9)";
+
+    card.appendChild(image);
+    card.appendChild(caption);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    STATE.qrOverlayEl = overlay;
+
+    pushDebug("yq -> qr_show");
+    return true;
   };
 
   const navigateToUrlParent = () => {
@@ -828,6 +1014,35 @@
       return true;
     }
 
+    if (STATE.pendingSequence === "y") {
+      if (isModifierKey(key)) {
+        pushDebug(`${key.toLowerCase()}(down)`);
+        return false;
+      }
+
+      if (key === "y") {
+        yankCurrentUrl();
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "Y") {
+        yankTitleAndUrl();
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "q") {
+        showQrOverlayForCurrentUrl();
+        resetPendingSequence();
+        return true;
+      }
+
+      pushDebug(`${key} -> none, reset`);
+      resetPendingSequence();
+      return true;
+    }
+
     if (STATE.pendingSequence === "z") {
       if (isModifierKey(key)) {
         pushDebug(`${key.toLowerCase()}(down)`);
@@ -984,6 +1199,14 @@
       return true;
     }
 
+    if (key === "y") {
+      STATE.pendingSequence = "y";
+      renderModeBadge();
+      schedulePendingTimeout();
+      pushDebug("y -> waiting_next");
+      return true;
+    }
+
     if (key === "?") {
       STATE.pendingSequence = "?";
       renderModeBadge();
@@ -1053,6 +1276,12 @@
       event.preventDefault();
       event.stopPropagation();
       toggleMode();
+      return;
+    }
+
+    if (event.key === "Escape" && closeQrOverlay()) {
+      event.preventDefault();
+      event.stopPropagation();
       return;
     }
 
