@@ -22,6 +22,7 @@
   const INPUT_ANCHOR_CLASS = "navbro-input-anchor";
   const KEY_CONFIG = window.NAVBRO_KEY_CONFIG || {
     modeToggle: { key: "Insert", ctrl: true, alt: false, shift: false, meta: false },
+    passMode: { defaultHosts: ["mail.google.com"] },
     scroll: {
       step: 120,
       fastStep: 360,
@@ -50,6 +51,36 @@
   };
   const DEBUG_VIEW_LINES = [0, 1, Math.max(1, KEY_CONFIG.debug?.maxEntries || 10)];
   const WEBEXT_RUNTIME = typeof browser !== "undefined" ? browser : typeof chrome !== "undefined" ? chrome : null;
+
+  const normalizeHost = (value) => {
+    if (typeof value !== "string") return "";
+    return value.trim().toLowerCase().replace(/^\.+/, "").replace(/\.+$/, "");
+  };
+
+  const hostRuleMatches = (host, rule) => {
+    const normalizedHost = normalizeHost(host);
+    const normalizedRule = normalizeHost(rule);
+    if (!normalizedHost || !normalizedRule) return false;
+
+    if (normalizedRule.startsWith("*.")) {
+      const baseHost = normalizedRule.slice(2);
+      return normalizedHost === baseHost || normalizedHost.endsWith(`.${baseHost}`);
+    }
+
+    return normalizedHost === normalizedRule;
+  };
+
+  const shouldStartInPassMode = () => {
+    const host = window.location?.hostname || "";
+    const rules = KEY_CONFIG.passMode?.defaultHosts;
+    if (!Array.isArray(rules) || !host) return false;
+    return rules.some((rule) => hostRuleMatches(host, rule));
+  };
+
+  if (shouldStartInPassMode()) {
+    STATE.mode = "pass";
+    STATE.debugEntries.unshift(`init -> mode_pass (${window.location.hostname})`);
+  }
 
   if (document.getElementById(BADGE_ID)) return;
 

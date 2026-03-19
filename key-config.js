@@ -8,6 +8,11 @@
       shift: false,
       meta: false,
     }),
+    passMode: Object.freeze({
+      defaultHosts: Object.freeze([
+        "mail.google.com",
+      ]),
+    }),
     scroll: Object.freeze({
       step: 120,
       fastStep: 360,

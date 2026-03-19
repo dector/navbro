@@ -81,6 +81,10 @@ Hint config (see `key-config.js`):
 - `hints.displayCovered: false` (default) — hide hints for covered elements
 - `hints.displayCovered: true` — show hints even if elements are covered
 
+Pass mode defaults (see `key-config.js`):
+- `passMode.defaultHosts: ["mail.google.com"]` — start in `pass` mode on matching hosts
+- Supports exact hosts and wildcard subdomain rules like `"*.example.com"`
+
 ### Editing, command-like actions, utilities
 - [x] Focus input (`gi`)
 - [ ] Focus input (alternate, `gI`)
