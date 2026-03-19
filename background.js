@@ -134,6 +134,18 @@ const closeActiveTab = async () => {
   await runtime.tabs.remove(activeTab.id);
 };
 
+const openTabAfterCurrent = async () => {
+  const tabs = await runtime.tabs.query({ currentWindow: true, active: true });
+  const activeTab = tabs[0];
+
+  if (!activeTab) {
+    await runtime.tabs.create({ active: true });
+    return;
+  }
+
+  await runtime.tabs.create({ index: activeTab.index + 1, active: true });
+};
+
 const detachActiveTab = async () => {
   if (typeof runtime.windows?.create !== "function") return;
 
@@ -249,6 +261,10 @@ runtime.runtime.onMessage.addListener((message) => {
 
   if (message.type === "navbro.tab.close") {
     void closeActiveTab();
+  }
+
+  if (message.type === "navbro.tab.open_after_current") {
+    void openTabAfterCurrent();
   }
 
   if (message.type === "navbro.tab.restore") {

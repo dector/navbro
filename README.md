@@ -47,7 +47,7 @@ Legend:
 - [ ] Next tab (`)`)
 - [ ] First tab (`gh`)
 - [ ] Last tab (`gl`)
-- [ ] Open tab (`gf`)
+- [x] Open tab after current (`gf`)
 - [x] Close tab (`w`)
 - [x] Restore closed tab (`u`)
 - [ ] Restore closed window/tab stack (`U`)

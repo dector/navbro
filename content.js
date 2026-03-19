@@ -218,6 +218,7 @@
       title: "Tabs & history",
       rows: [
         ["w / u", "close tab / restore tab"],
+        ["gf", "open new tab after current"],
         ["' / - / +", "history back / back / forward"],
         ["ga", "focus next tab playing audio"],
         ["td", "move tab to selected window"],
@@ -1263,6 +1264,13 @@
 
       if (key === "i") {
         focusNextImportantInput();
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "f") {
+        sendRuntimeMessage({ type: "navbro.tab.open_after_current" });
+        pushDebug("gf -> tab_open_after_current, reset");
         resetPendingSequence();
         return true;
       }
