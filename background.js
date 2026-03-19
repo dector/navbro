@@ -137,13 +137,18 @@ const closeActiveTab = async () => {
 const openTabAfterCurrent = async () => {
   const tabs = await runtime.tabs.query({ currentWindow: true, active: true });
   const activeTab = tabs[0];
+  const newTabUrl = typeof runtime.runtime?.getURL === "function" ? runtime.runtime.getURL("newtab.html") : undefined;
 
   if (!activeTab) {
-    await runtime.tabs.create({ active: true });
+    await runtime.tabs.create({ active: true, ...(newTabUrl ? { url: newTabUrl } : {}) });
     return;
   }
 
-  await runtime.tabs.create({ index: activeTab.index + 1, active: true });
+  await runtime.tabs.create({
+    index: activeTab.index + 1,
+    active: true,
+    ...(newTabUrl ? { url: newTabUrl } : {}),
+  });
 };
 
 const detachActiveTab = async () => {
