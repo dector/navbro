@@ -1,27 +1,39 @@
 {
   "manifest_version": 3,
   "name": "navbro",
-  "version": "0.0.7-snapshot",
+  "version": "0.0.7",
   "description": "Small keyboard-first Vim-like browsing extension for Firefox.",
   "browser_specific_settings": {
     "gecko": {
       "id": "navbro@dector.space",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": [
+          "none"
+        ]
       }
     }
   },
-  "permissions": ["tabs", "sessions"],
+  "permissions": [
+    "tabs",
+    "sessions"
+  ],
   "chrome_url_overrides": {
     "newtab": "newtab.html"
   },
   "background": {
-    "scripts": ["background.js"]
+    "scripts": [
+      "background.js"
+    ]
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["key-config.js", "content.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "key-config.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ]
