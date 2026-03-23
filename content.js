@@ -1,6 +1,7 @@
 (() => {
   const STATE = {
     mode: "nav", // 'nav' | 'pass' | 'hint' | 'input'
+    passModeSource: "none", // 'none' | 'filterlist' | 'manual'
     passOnceArmed: false,
     pendingSequence: null,
     pendingTimerId: null,
@@ -13,6 +14,10 @@
     hintSession: null,
     lastInputIndex: null,
     inputAnchorEl: null,
+    uiSettings: {
+      passModeVibisibility: "hide-filterlist-only",
+      position: "top-right",
+    },
   };
 
   const BADGE_ID = "navbro-mode-badge";
@@ -25,6 +30,10 @@
     modeToggle: { key: "Insert", ctrl: true, alt: false, shift: false, meta: false },
     passOnceToggle: { key: "v", ctrl: true, alt: false, shift: false, meta: false },
     passMode: { defaultHosts: ["mail.google.com"] },
+    indicator: {
+      passModeVibisibility: "hide-filterlist-only",
+      position: "top-right",
+    },
     scroll: {
       step: 120,
       fastStep: 360,
@@ -54,6 +63,26 @@
   const DEBUG_VIEW_LINES = [0, 1, Math.max(1, KEY_CONFIG.debug?.maxEntries || 10)];
   const WEBEXT_RUNTIME = typeof browser !== "undefined" ? browser : typeof chrome !== "undefined" ? chrome : null;
 
+  const getDefaultIndicatorSettings = () => ({
+    passModeVibisibility: ["show-always", "hide-always", "hide-filterlist-only"].includes(
+      KEY_CONFIG.indicator?.passModeVibisibility,
+    )
+      ? KEY_CONFIG.indicator.passModeVibisibility
+      : "hide-filterlist-only",
+    position: [
+      "top-left",
+      "top-center",
+      "top-right",
+      "center-left",
+      "center-right",
+      "bottom-left",
+      "bottom-center",
+      "bottom-right",
+    ].includes(KEY_CONFIG.indicator?.position)
+      ? KEY_CONFIG.indicator.position
+      : "top-right",
+  });
+
   const normalizeHost = (value) => {
     if (typeof value !== "string") return "";
     return value.trim().toLowerCase().replace(/^\.+/, "").replace(/\.+$/, "");
@@ -81,6 +110,7 @@
 
   if (shouldStartInPassMode()) {
     STATE.mode = "pass";
+    STATE.passModeSource = "filterlist";
     STATE.debugEntries.unshift(`init -> mode_pass (${window.location.hostname})`);
   }
 
@@ -154,11 +184,129 @@
     }
   `;
 
+  const INDICATOR_POSITIONS = new Set([
+    "top-left",
+    "top-center",
+    "top-right",
+    "center-left",
+    "center-right",
+    "bottom-left",
+    "bottom-center",
+    "bottom-right",
+  ]);
+  const PASS_MODE_VIBISIBILITY_VALUES = new Set(["show-always", "hide-always", "hide-filterlist-only"]);
+
+  const applyStoredIndicatorSettings = (rawSettings = {}) => {
+    const defaults = getDefaultIndicatorSettings();
+    const nextPassModeVibisibility = PASS_MODE_VIBISIBILITY_VALUES.has(rawSettings.passModeVibisibility)
+      ? rawSettings.passModeVibisibility
+      : defaults.passModeVibisibility;
+    const nextPosition = INDICATOR_POSITIONS.has(rawSettings.position) ? rawSettings.position : defaults.position;
+
+    STATE.uiSettings = {
+      passModeVibisibility: nextPassModeVibisibility,
+      position: nextPosition,
+    };
+    renderModeBadge();
+  };
+
+  const loadIndicatorSettings = async () => {
+    const storage = WEBEXT_RUNTIME?.storage?.local;
+    if (!storage?.get) {
+      applyStoredIndicatorSettings();
+      return;
+    }
+
+    const defaults = getDefaultIndicatorSettings();
+    try {
+      const data = await storage.get({
+        indicatorPassModeVibisibility: defaults.passModeVibisibility,
+        indicatorPosition: defaults.position,
+      });
+
+      applyStoredIndicatorSettings({
+        passModeVibisibility: data?.indicatorPassModeVibisibility,
+        position: data?.indicatorPosition,
+      });
+    } catch {
+      applyStoredIndicatorSettings();
+    }
+  };
+
+  const applyBadgePosition = (position) => {
+    badge.style.top = "";
+    badge.style.right = "";
+    badge.style.bottom = "";
+    badge.style.left = "";
+    badge.style.transform = "";
+
+    if (position === "top-left") {
+      badge.style.top = "8px";
+      badge.style.left = "8px";
+      return;
+    }
+
+    if (position === "top-center") {
+      badge.style.top = "8px";
+      badge.style.left = "50%";
+      badge.style.transform = "translateX(-50%)";
+      return;
+    }
+
+    if (position === "center-left") {
+      badge.style.top = "50%";
+      badge.style.left = "8px";
+      badge.style.transform = "translateY(-50%)";
+      return;
+    }
+
+    if (position === "center-right") {
+      badge.style.top = "50%";
+      badge.style.right = "8px";
+      badge.style.transform = "translateY(-50%)";
+      return;
+    }
+
+    if (position === "bottom-left") {
+      badge.style.bottom = "8px";
+      badge.style.left = "8px";
+      return;
+    }
+
+    if (position === "bottom-center") {
+      badge.style.bottom = "8px";
+      badge.style.left = "50%";
+      badge.style.transform = "translateX(-50%)";
+      return;
+    }
+
+    if (position === "bottom-right") {
+      badge.style.bottom = "8px";
+      badge.style.right = "8px";
+      return;
+    }
+
+    // default: top-right
+    badge.style.top = "8px";
+    badge.style.right = "8px";
+  };
+
+  const shouldHideBadgeInPassMode = () => {
+    if (STATE.mode !== "pass") return false;
+
+    const behavior = STATE.uiSettings.passModeVibisibility;
+    if (behavior === "hide-always") return true;
+    if (behavior === "show-always") return false;
+    return STATE.passModeSource === "filterlist";
+  };
+
   const renderModeBadge = () => {
     const isWaitingNext = STATE.pendingSequence !== null;
     const isHint = STATE.mode === "hint";
     const isInput = STATE.mode === "input";
     const isPassOnce = STATE.passOnceArmed && STATE.mode === "nav";
+    applyBadgePosition(STATE.uiSettings.position);
+    badge.style.display = shouldHideBadgeInPassMode() ? "none" : "block";
     badge.textContent = isPassOnce ? "pass1" : STATE.mode;
     badge.style.background = isHint
       ? "#7cc7e8"
@@ -396,7 +544,9 @@
   };
 
   const toggleMode = () => {
-    STATE.mode = STATE.mode === "nav" ? "pass" : "nav";
+    const nextMode = STATE.mode === "nav" ? "pass" : "nav";
+    STATE.mode = nextMode;
+    STATE.passModeSource = nextMode === "pass" ? "manual" : "none";
     resetPendingSequence();
     clearPassOnce();
     clearHintSession({ restoreNavMode: false });
@@ -1769,6 +1919,22 @@
   window.addEventListener("keydown", onKeyDown, true);
   window.addEventListener("keyup", onKeyUp, true);
   window.addEventListener("focusin", syncModeWithFocusedInput, true);
+
+  if (WEBEXT_RUNTIME?.storage?.onChanged?.addListener) {
+    WEBEXT_RUNTIME.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== "local") return;
+      const passChange = changes.indicatorPassModeVibisibility;
+      const positionChange = changes.indicatorPosition;
+      if (!passChange && !positionChange) return;
+
+      applyStoredIndicatorSettings({
+        passModeVibisibility: passChange ? passChange.newValue : STATE.uiSettings.passModeVibisibility,
+        position: positionChange ? positionChange.newValue : STATE.uiSettings.position,
+      });
+    });
+  }
+
+  void loadIndicatorSettings();
 
   if (!mountUi()) {
     const observer = new MutationObserver(() => {

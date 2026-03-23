@@ -86,6 +86,14 @@ Pass mode defaults (see `key-config.js`):
 - `passMode.defaultHosts: ["mail.google.com"]` — start in `pass` mode on matching hosts
 - Supports exact hosts and wildcard subdomain rules like `"*.example.com"`
 
+Indicator settings:
+- `indicator.passModeVibisibility: "hide-filterlist-only"` (default)
+  - `"show-always"` — show pass badge always
+  - `"hide-always"` — hide pass badge always
+  - `"hide-filterlist-only"` — hide pass badge only when pass mode was auto-enabled by filter list
+- `indicator.position: "top-right"` (default)
+  - `top-left`, `top-center`, `top-right`, `center-left`, `center-right`, `bottom-left`, `bottom-center`, `bottom-right`
+
 One-shot pass-through:
 - `Ctrl-v` in `nav` mode passes only the next key/combo to the page/browser, then returns to `nav`
 - In `input` mode, `Ctrl-v` is not intercepted (native paste)

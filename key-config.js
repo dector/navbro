@@ -20,6 +20,10 @@
         "mail.google.com",
       ]),
     }),
+    indicator: Object.freeze({
+      passModeVibisibility: "hide-filterlist-only", // 'show-always' | 'hide-always' | 'hide-filterlist-only'
+      position: "top-right", // top-left|top-center|top-right|center-left|center-right|bottom-left|bottom-center|bottom-right
+    }),
     scroll: Object.freeze({
       step: 120,
       fastStep: 360,

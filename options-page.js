@@ -2,29 +2,47 @@
   const runtime = typeof browser !== "undefined" ? browser : chrome;
   const storage = runtime?.storage?.local;
 
-  const KEY = "newtabText";
-  const DEFAULT_TEXT = "=^_^=";
+  const DEFAULTS = Object.freeze({
+    newtabText: "=^_^=",
+    indicatorPassModeVibisibility: "hide-filterlist-only",
+    indicatorPosition: "top-right",
+  });
+
+  const VALID_PASS_MODE_VIBISIBILITY = new Set(["show-always", "hide-always", "hide-filterlist-only"]);
+  const VALID_POSITIONS = new Set([
+    "top-left",
+    "top-center",
+    "top-right",
+    "center-left",
+    "center-right",
+    "bottom-left",
+    "bottom-center",
+    "bottom-right",
+  ]);
+
   const MAX_LEN = 120;
 
+  const newtabTextEl = document.getElementById("newtabText");
+  const passModeVibisibilityEl = document.getElementById("passModeVibisibility");
+  const indicatorPositionEl = document.getElementById("indicatorPosition");
   const saveBtn = document.getElementById("saveBtn");
+  const resetBtn = document.getElementById("resetBtn");
   const backBtn = document.getElementById("backBtn");
   const statusEl = document.getElementById("status");
 
-  const displayBox = document.getElementById("newtabDisplay");
-  const displayText = document.getElementById("newtabDisplayText");
-  const editorWrap = document.getElementById("newtabEditor");
-  const input = document.getElementById("newtabText");
-  const resetBtn = document.getElementById("newtabResetBtn");
+  const clampText = (value) => (typeof value === "string" ? value.slice(0, MAX_LEN) : "");
 
-  let savedValue = DEFAULT_TEXT;
-  let draftValue = DEFAULT_TEXT;
-  let editing = false;
+  const normalizeNewtabText = (value) => {
+    const text = clampText(value).trim();
+    return text || DEFAULTS.newtabText;
+  };
 
-  const clamp = (value) => (typeof value === "string" ? value.slice(0, MAX_LEN) : "");
+  const normalizePassModeVibisibility = (value) => {
+    return VALID_PASS_MODE_VIBISIBILITY.has(value) ? value : DEFAULTS.indicatorPassModeVibisibility;
+  };
 
-  const normalizeStored = (value) => {
-    const text = clamp(value).trim();
-    return text ? text : DEFAULT_TEXT;
+  const normalizePosition = (value) => {
+    return VALID_POSITIONS.has(value) ? value : DEFAULTS.indicatorPosition;
   };
 
   const setStatus = (text, isOk = false) => {
@@ -32,57 +50,40 @@
     statusEl.classList.toggle("ok", Boolean(isOk));
   };
 
-  const hasUnsavedChanges = () => draftValue !== savedValue;
+  const getDraft = () => ({
+    newtabText: normalizeNewtabText(newtabTextEl.value),
+    indicatorPassModeVibisibility: normalizePassModeVibisibility(passModeVibisibilityEl.value),
+    indicatorPosition: normalizePosition(indicatorPositionEl.value),
+  });
 
-  const isDifferentFromDefault = () => draftValue !== DEFAULT_TEXT;
-
-  const openEditor = () => {
-    editing = true;
-    displayBox.classList.add("hidden");
-    editorWrap.classList.remove("hidden");
-    input.value = draftValue;
-    input.focus();
-    input.select();
+  const applyToForm = (value) => {
+    newtabTextEl.value = value.newtabText;
+    passModeVibisibilityEl.value = value.indicatorPassModeVibisibility;
+    indicatorPositionEl.value = value.indicatorPosition;
   };
 
-  const closeEditor = () => {
-    editing = false;
-    editorWrap.classList.add("hidden");
-    displayBox.classList.remove("hidden");
-  };
-
-  const render = () => {
-    displayText.textContent = draftValue;
-
-    const unsaved = hasUnsavedChanges();
-    saveBtn.classList.toggle("hidden", !unsaved);
-    editorWrap.classList.toggle("unsaved", unsaved);
-
-    resetBtn.classList.toggle("hidden", !isDifferentFromDefault());
-
-    if (!editing) {
-      closeEditor();
-    }
-  };
+  let saved = { ...DEFAULTS };
 
   const load = async () => {
     if (!storage) {
       setStatus("Storage API unavailable");
+      applyToForm({ ...DEFAULTS });
       return;
     }
 
     try {
-      const data = await storage.get({ [KEY]: DEFAULT_TEXT });
-      const storedText = normalizeStored(data?.[KEY]);
-      savedValue = storedText;
-      draftValue = storedText;
+      const data = await storage.get({ ...DEFAULTS });
+      saved = {
+        newtabText: normalizeNewtabText(data.newtabText),
+        indicatorPassModeVibisibility: normalizePassModeVibisibility(data.indicatorPassModeVibisibility),
+        indicatorPosition: normalizePosition(data.indicatorPosition),
+      };
+      applyToForm(saved);
       setStatus("");
-      render();
     } catch {
-      savedValue = DEFAULT_TEXT;
-      draftValue = DEFAULT_TEXT;
+      saved = { ...DEFAULTS };
+      applyToForm(saved);
       setStatus("Failed to load settings");
-      render();
     }
   };
 
@@ -92,62 +93,22 @@
       return;
     }
 
-    const nextText = normalizeStored(draftValue);
-
+    const draft = getDraft();
     try {
-      await storage.set({ [KEY]: nextText });
-      savedValue = nextText;
-      draftValue = nextText;
-      input.value = nextText;
+      await storage.set(draft);
+      saved = { ...draft };
+      applyToForm(saved);
       setStatus("Saved", true);
-      render();
     } catch {
       setStatus("Failed to save");
     }
   };
 
-  displayBox.addEventListener("click", openEditor);
-  displayBox.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      openEditor();
-    }
-  });
-
-  input.addEventListener("input", () => {
-    draftValue = clamp(input.value);
-    setStatus("");
-    render();
-  });
-
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      closeEditor();
-      displayBox.focus();
-      return;
-    }
-
-    if (event.key === "Enter") {
-      event.preventDefault();
-      closeEditor();
-      displayBox.focus();
-    }
-  });
-
-  input.addEventListener("blur", () => {
-    if (editing) {
-      closeEditor();
-    }
-  });
-
   saveBtn.addEventListener("click", save);
 
   resetBtn.addEventListener("click", () => {
-    draftValue = DEFAULT_TEXT;
-    input.value = DEFAULT_TEXT;
-    setStatus("");
-    render();
+    applyToForm({ ...DEFAULTS });
+    setStatus("Reset to defaults", true);
   });
 
   backBtn.addEventListener("click", () => {
@@ -163,6 +124,14 @@
 
     window.close();
   });
+
+  newtabTextEl.addEventListener("input", () => {
+    newtabTextEl.value = clampText(newtabTextEl.value);
+    setStatus("");
+  });
+
+  passModeVibisibilityEl.addEventListener("change", () => setStatus(""));
+  indicatorPositionEl.addEventListener("change", () => setStatus(""));
 
   load();
 })();
