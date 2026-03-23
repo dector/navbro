@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+MANIFEST_PATH="$ROOT_DIR/manifest.json"
+
+cd "$ROOT_DIR"
+
+bright() {
+  printf '\033[1;93m%s\033[0m' "$1"
+}
+
+read_manifest_version() {
+  uv run python - "$MANIFEST_PATH" <<'PY'
+import json
+import sys
+
+manifest_path = sys.argv[1]
+with open(manifest_path, 'r', encoding='utf-8') as f:
+    data = json.load(f)
+print(data['version'])
+PY
+}
+
+write_manifest_version() {
+  local version="$1"
+  uv run python - "$MANIFEST_PATH" "$version" <<'PY'
+import json
+import sys
+
+manifest_path = sys.argv[1]
+version = sys.argv[2]
+with open(manifest_path, 'r', encoding='utf-8') as f:
+    data = json.load(f)
+
+data['version'] = version
+
+with open(manifest_path, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+PY
+}
+
+suggest_next_patch() {
+  local version="$1"
+  if [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+    local major="${BASH_REMATCH[1]}"
+    local minor="${BASH_REMATCH[2]}"
+    local patch="${BASH_REMATCH[3]}"
+    echo "$major.$minor.$((patch + 1))"
+  else
+    echo ""
+  fi
+}
+
+confirm_or_exit() {
+  local prompt="$1"
+  local answer
+  read -r -p "$prompt [y/N]: " answer
+  if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+    echo "Aborted."
+    exit 1
+  fi
+}
+
+if ! command -v uv >/dev/null 2>&1; then
+  echo "Error: 'uv' is required but was not found in PATH."
+  exit 1
+fi
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "Error: working tree is not clean. Commit or stash your changes first."
+  exit 1
+fi
+
+current_version="$(read_manifest_version)"
+
+if [[ "$current_version" != *-snapshot ]]; then
+  echo "Error: current version is not a snapshot: $current_version"
+  exit 1
+fi
+
+release_version="${current_version%-snapshot}"
+
+echo "Preparing release $(bright "$release_version") from snapshot $(bright "$current_version")."
+confirm_or_exit "Confirm release of version $release_version?"
+
+write_manifest_version "$release_version"
+
+echo "Running build..."
+./build
+
+git add manifest.json
+git commit -m "chore(release): $release_version"
+echo "Committed release version: $(bright "$release_version")"
+
+suggested_next="$(suggest_next_patch "$release_version")"
+if [[ -n "$suggested_next" ]]; then
+  read -r -p "What is the new base version? [suggested: $suggested_next]: " next_version_input
+  next_base_version="${next_version_input:-$suggested_next}"
+else
+  read -r -p "What is the new base version (without -snapshot)? " next_base_version
+fi
+
+next_base_version="${next_base_version%-snapshot}"
+next_snapshot_version="${next_base_version}-snapshot"
+
+echo "New development version will be: $(bright "$next_snapshot_version")"
+confirm_or_exit "Confirm setting next version?"
+
+write_manifest_version "$next_snapshot_version"
+
+git add manifest.json
+git commit -m "chore(release): $next_snapshot_version"
+
+echo "Done."
+echo "Released: $(bright "$release_version")"
+echo "Next snapshot: $(bright "$next_snapshot_version")"
