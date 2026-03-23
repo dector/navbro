@@ -63,6 +63,40 @@ confirm_or_exit() {
   fi
 }
 
+is_valid_base_version() {
+  local version="$1"
+  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+}
+
+prompt_next_base_version() {
+  local suggested="$1"
+  local input
+  local candidate
+
+  while true; do
+    if [[ -n "$suggested" ]]; then
+      read -r -p "What is the new base version? [suggested: $suggested] (Enter/y = suggested): " input
+      if [[ -z "$input" || "$input" =~ ^([Yy]|[Yy][Ee][Ss])$ ]]; then
+        candidate="$suggested"
+      else
+        candidate="$input"
+      fi
+    else
+      read -r -p "What is the new base version (without -snapshot, e.g. 0.0.8): " input
+      candidate="$input"
+    fi
+
+    candidate="${candidate%-snapshot}"
+
+    if is_valid_base_version "$candidate"; then
+      echo "$candidate"
+      return 0
+    fi
+
+    echo "Error: invalid version '$candidate'. Expected format: x.y.z (numbers only)."
+  done
+}
+
 if ! command -v uv >/dev/null 2>&1; then
   echo "Error: 'uv' is required but was not found in PATH."
   exit 1
@@ -95,14 +129,7 @@ git commit -m "chore(release): $release_version"
 echo "Committed release version: $(bright "$release_version")"
 
 suggested_next="$(suggest_next_patch "$release_version")"
-if [[ -n "$suggested_next" ]]; then
-  read -r -p "What is the new base version? [suggested: $suggested_next]: " next_version_input
-  next_base_version="${next_version_input:-$suggested_next}"
-else
-  read -r -p "What is the new base version (without -snapshot)? " next_base_version
-fi
-
-next_base_version="${next_base_version%-snapshot}"
+next_base_version="$(prompt_next_base_version "$suggested_next")"
 next_snapshot_version="${next_base_version}-snapshot"
 
 echo "New development version will be: $(bright "$next_snapshot_version")"
