@@ -8,6 +8,13 @@
       shift: false,
       meta: false,
     }),
+    passOnceToggle: Object.freeze({
+      key: "v",
+      ctrl: true,
+      alt: false,
+      shift: false,
+      meta: false,
+    }),
     passMode: Object.freeze({
       defaultHosts: Object.freeze([
         "mail.google.com",

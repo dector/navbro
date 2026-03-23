@@ -1,6 +1,7 @@
 (() => {
   const STATE = {
     mode: "nav", // 'nav' | 'pass' | 'hint' | 'input'
+    passOnceArmed: false,
     pendingSequence: null,
     pendingTimerId: null,
     toastHideTimerId: null,
@@ -22,6 +23,7 @@
   const INPUT_ANCHOR_CLASS = "navbro-input-anchor";
   const KEY_CONFIG = window.NAVBRO_KEY_CONFIG || {
     modeToggle: { key: "Insert", ctrl: true, alt: false, shift: false, meta: false },
+    passOnceToggle: { key: "v", ctrl: true, alt: false, shift: false, meta: false },
     passMode: { defaultHosts: ["mail.google.com"] },
     scroll: {
       step: 120,
@@ -156,9 +158,16 @@
     const isWaitingNext = STATE.pendingSequence !== null;
     const isHint = STATE.mode === "hint";
     const isInput = STATE.mode === "input";
-    badge.textContent = STATE.mode;
-    badge.style.background = isHint ? "#7cc7e8" : isInput ? "#9ad7a5" : isWaitingNext ? "#f2c48d" : "#111";
-    badge.style.color = isHint || isInput || isWaitingNext ? "#1f1f1f" : "#fff";
+    const isPassOnce = STATE.passOnceArmed && STATE.mode === "nav";
+    badge.textContent = isPassOnce ? "pass1" : STATE.mode;
+    badge.style.background = isHint
+      ? "#7cc7e8"
+      : isInput
+        ? "#9ad7a5"
+        : isPassOnce || isWaitingNext
+          ? "#f2c48d"
+          : "#111";
+    badge.style.color = isHint || isInput || isPassOnce || isWaitingNext ? "#1f1f1f" : "#fff";
   };
 
   const renderDebugPanel = () => {
@@ -202,6 +211,7 @@
         ["f / F / T", "hints (current / bg tab / fg tab)"],
         ["/", "native find"],
         ["i / Esc", "input mode / back to nav"],
+        ["Ctrl-v", "pass next key to browser (nav)"],
         ["gi", "focus next important input"],
       ],
     },
@@ -361,9 +371,34 @@
     }, KEY_CONFIG.keySequence.timeoutMs);
   };
 
+  const clearPassOnce = () => {
+    if (!STATE.passOnceArmed) return;
+    STATE.passOnceArmed = false;
+    renderModeBadge();
+  };
+
+  const armPassOnce = () => {
+    if (STATE.mode !== "nav") return false;
+    resetPendingSequence();
+    clearHintSession({ restoreNavMode: false });
+    closeTabWindowPicker("pass1_arm");
+    STATE.passOnceArmed = true;
+    renderModeBadge();
+    pushDebug("Ctrl-v -> pass1_wait_next");
+    return true;
+  };
+
+  const consumePassOnce = (keyLabel) => {
+    if (!STATE.passOnceArmed) return;
+    STATE.passOnceArmed = false;
+    renderModeBadge();
+    pushDebug(`pass1 -> passed ${keyLabel}`);
+  };
+
   const toggleMode = () => {
     STATE.mode = STATE.mode === "nav" ? "pass" : "nav";
     resetPendingSequence();
+    clearPassOnce();
     clearHintSession({ restoreNavMode: false });
     closeTabWindowPicker("mode_toggle");
     renderModeBadge();
@@ -843,6 +878,7 @@
     }
 
     if (focusedInput && STATE.mode !== "input") {
+      clearPassOnce();
       STATE.mode = "input";
       renderModeBadge();
       pushDebug("focus -> mode_input");
@@ -1635,6 +1671,13 @@
       return;
     }
 
+    if (STATE.mode === "nav" && matchesCombo(event, KEY_CONFIG.passOnceToggle)) {
+      event.preventDefault();
+      event.stopPropagation();
+      armPassOnce();
+      return;
+    }
+
     if (event.key === "Escape" && closeQrOverlay()) {
       event.preventDefault();
       event.stopPropagation();
@@ -1651,6 +1694,7 @@
       event.preventDefault();
       event.stopPropagation();
 
+      clearPassOnce();
       resetPendingSequence();
       clearHintSession({ restoreNavMode: false });
 
@@ -1683,6 +1727,15 @@
     if (STATE.mode === "input" && handleTabNavigationHotkeys(event)) {
       event.preventDefault();
       event.stopPropagation();
+      return;
+    }
+
+    if (STATE.mode === "nav" && STATE.passOnceArmed) {
+      if (isModifierKey(event.key)) {
+        return;
+      }
+
+      consumePassOnce(event.key);
       return;
     }
 

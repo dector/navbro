@@ -23,6 +23,7 @@ Legend:
 - [x] Multi-key sequence support (initial, for `g...`)
 - [x] Sequence timeout handling
 - [x] Input passthrough mode (`input`, entered by `i` on focused input)
+- [x] One-shot pass-through (`Ctrl-v` in `nav`: pass next key, then back to `nav`)
 - [x] Escape-based reset to normal mode (`Esc`)
 - [ ] Repeat last action (`.`)
 
@@ -84,6 +85,10 @@ Hint config (see `key-config.js`):
 Pass mode defaults (see `key-config.js`):
 - `passMode.defaultHosts: ["mail.google.com"]` — start in `pass` mode on matching hosts
 - Supports exact hosts and wildcard subdomain rules like `"*.example.com"`
+
+One-shot pass-through:
+- `Ctrl-v` in `nav` mode passes only the next key/combo to the page/browser, then returns to `nav`
+- In `input` mode, `Ctrl-v` is not intercepted (native paste)
 
 ### Editing, command-like actions, utilities
 - [x] Focus input (`gi`)
