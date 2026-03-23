@@ -3,7 +3,7 @@
   const storage = runtime?.storage?.local;
 
   const KEY = "newtabText";
-  const DEFAULT_TEXT = "Hi!";
+  const DEFAULT_TEXT = "=^_^=";
   const MAX_LEN = 120;
 
   const saveBtn = document.getElementById("saveBtn");

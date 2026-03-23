@@ -1,7 +1,7 @@
 (() => {
   const runtime = typeof browser !== "undefined" ? browser : chrome;
   const storage = runtime?.storage?.local;
-  const DEFAULT_TEXT = "Hi!";
+  const DEFAULT_TEXT = "=^_^=";
   const KEY = "newtabText";
 
   const normalize = (value) => {
