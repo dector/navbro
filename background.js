@@ -230,7 +230,7 @@ const applyActiveTabZoom = async (payload = {}) => {
   await runtime.tabs.setZoom(tabId, nextZoom);
 };
 
-runtime.runtime.onMessage.addListener((message) => {
+runtime.runtime.onMessage.addListener((message, sender) => {
   if (!message || typeof message !== "object") return;
 
   if (message.type === "navbro.window.list_for_tab_move") {
@@ -266,6 +266,18 @@ runtime.runtime.onMessage.addListener((message) => {
     if (!url) return;
 
     const active = !!message.active;
+    const sourceTab = sender?.tab;
+
+    if (sourceTab?.windowId != null && Number.isInteger(sourceTab.index)) {
+      void runtime.tabs.create({
+        url,
+        active,
+        windowId: sourceTab.windowId,
+        index: sourceTab.index + 1,
+      });
+      return;
+    }
+
     void runtime.tabs.create({ url, active });
   }
 
