@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>navbro settings</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      body {
+        margin: 0;
+        padding: 32px 20px;
+        background: #101010;
+        color: #e9ecef;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      }
+
+      .wrap {
+        max-width: 700px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        margin: 0 0 18px;
+        font-size: 24px;
+      }
+
+      .field {
+        display: grid;
+        gap: 8px;
+        margin: 0 0 14px;
+      }
+
+      label {
+        color: #c2c7cc;
+        font-size: 14px;
+      }
+
+      input[type="text"] {
+        width: 100%;
+        border: 1px solid #3a3f44;
+        border-radius: 10px;
+        background: #191b1d;
+        color: #f3f5f7;
+        padding: 11px 12px;
+        font-size: 15px;
+      }
+
+      input[type="text"]:focus-visible {
+        outline: 2px solid #5865f2;
+        outline-offset: 1px;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      button {
+        border: 1px solid #4a5057;
+        border-radius: 10px;
+        background: #25292d;
+        color: #f3f5f7;
+        padding: 9px 13px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      button:hover,
+      button:focus-visible {
+        background: #2f3439;
+        border-color: #69727a;
+        outline: none;
+      }
+
+      .hint {
+        color: #9aa1a8;
+        font-size: 13px;
+        margin-top: 8px;
+      }
+
+      .status {
+        font-size: 13px;
+        min-height: 18px;
+      }
+
+      .status.ok {
+        color: #77d28c;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>navbro settings</h1>
+
+      <div class="field">
+        <label for="newtabText">Text shown on new tab page</label>
+        <input id="newtabText" type="text" maxlength="120" autocomplete="off" placeholder="Hi!" />
+        <div class="hint">Empty value falls back to default: <strong>Hi!</strong></div>
+      </div>
+
+      <div class="actions">
+        <button id="saveBtn" type="button">Save</button>
+        <button id="resetBtn" type="button">Reset</button>
+        <span class="status" id="status" role="status" aria-live="polite"></span>
+      </div>
+    </main>
+
+    <script src="options-page.js"></script>
+  </body>
+</html>

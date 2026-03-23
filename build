@@ -38,6 +38,9 @@ cp "$ROOT_DIR/background.js" "$TMP_DIR/"
 cp "$ROOT_DIR/content.js" "$TMP_DIR/"
 cp "$ROOT_DIR/key-config.js" "$TMP_DIR/"
 cp "$ROOT_DIR/newtab.html" "$TMP_DIR/"
+cp "$ROOT_DIR/newtab-page.js" "$TMP_DIR/"
+cp "$ROOT_DIR/options.html" "$TMP_DIR/"
+cp "$ROOT_DIR/options-page.js" "$TMP_DIR/"
 
 # Optional extra directories commonly used by extensions.
 for dir in icons assets; do

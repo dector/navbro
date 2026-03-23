@@ -30,12 +30,66 @@
         line-height: 1;
         margin: 0;
         text-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+        text-align: center;
+        padding: 0 20px;
+        word-break: break-word;
+      }
+
+      .settings-btn {
+        position: fixed;
+        top: 14px;
+        right: 14px;
+        width: 34px;
+        height: 34px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 10px;
+        background: rgba(20, 20, 20, 0.55);
+        color: #b9bec3;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+      }
+
+      .settings-btn:hover,
+      .settings-btn:focus-visible {
+        background: rgba(40, 40, 40, 0.72);
+        border-color: rgba(255, 255, 255, 0.24);
+        color: #e7eaed;
+        outline: none;
+      }
+
+      .settings-btn svg {
+        width: 18px;
+        height: 18px;
       }
     </style>
   </head>
   <body>
-    <h1 class="hello">Hi!</h1>
+    <button class="settings-btn" id="openSettings" aria-label="Open extension settings" title="Open extension settings">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="lucide lucide-settings2-icon lucide-settings-2"
+        aria-hidden="true"
+      >
+        <path d="M14 17H5"/>
+        <path d="M19 7h-9"/>
+        <circle cx="17" cy="17" r="3"/>
+        <circle cx="7" cy="7" r="3"/>
+      </svg>
+    </button>
 
+    <h1 class="hello" id="helloText">Hi!</h1>
+
+    <script src="newtab-page.js"></script>
     <script src="key-config.js"></script>
     <script src="content.js"></script>
   </body>
