@@ -108,27 +108,31 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
 fi
 
 current_version="$(read_manifest_version)"
+did_release="false"
+release_version=""
 
-if [[ "$current_version" != *-snapshot ]]; then
-  echo "Error: current version is not a snapshot: $current_version"
-  exit 1
+if [[ "$current_version" == *-snapshot ]]; then
+  release_version="${current_version%-snapshot}"
+
+  echo "Preparing release $(bright "$release_version") from snapshot $(bright "$current_version")."
+  confirm_or_exit "Confirm release of version $release_version?"
+
+  write_manifest_version "$release_version"
+
+  echo "Running build..."
+  ./build
+
+  git add manifest.json
+  git commit -m "chore(release): $release_version"
+  echo "Committed release version: $(bright "$release_version")"
+
+  did_release="true"
+  suggested_next="$(suggest_next_patch "$release_version")"
+else
+  echo "Current version $(bright "$current_version") is not a snapshot. Skipping release stage."
+  suggested_next="$(suggest_next_patch "$current_version")"
 fi
 
-release_version="${current_version%-snapshot}"
-
-echo "Preparing release $(bright "$release_version") from snapshot $(bright "$current_version")."
-confirm_or_exit "Confirm release of version $release_version?"
-
-write_manifest_version "$release_version"
-
-echo "Running build..."
-./build
-
-git add manifest.json
-git commit -m "chore(release): $release_version"
-echo "Committed release version: $(bright "$release_version")"
-
-suggested_next="$(suggest_next_patch "$release_version")"
 next_base_version="$(prompt_next_base_version "$suggested_next")"
 next_snapshot_version="${next_base_version}-snapshot"
 
@@ -141,5 +145,7 @@ git add manifest.json
 git commit -m "chore(release): $next_snapshot_version"
 
 echo "Done."
-echo "Released: $(bright "$release_version")"
+if [[ "$did_release" == "true" ]]; then
+  echo "Released: $(bright "$release_version")"
+fi
 echo "Next snapshot: $(bright "$next_snapshot_version")"
