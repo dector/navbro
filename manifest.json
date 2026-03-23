@@ -6,6 +6,7 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "navbro@dector.space",
+      "update_url": "https://versioncheck.addons.mozilla.org/update/VersionCheck.php?reqVersion=2",
       "data_collection_permissions": {
         "required": [
           "none"
