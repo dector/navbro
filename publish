@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+RELEASE_VERSION="${1:-}"
+DIST_DIR="$ROOT_DIR/dist"
+
+cd "$ROOT_DIR"
+
+load_env_file_if_present() {
+  local env_path="$1"
+  if [[ -f "$env_path" ]]; then
+    # shellcheck disable=SC1090
+    set -a
+    source "$env_path"
+    set +a
+    echo "Loaded env from: $env_path"
+  fi
+}
+
+load_env_file_if_present "$ROOT_DIR/.env"
+load_env_file_if_present "$ROOT_DIR/.env.local"
+
+if ! command -v web-ext >/dev/null 2>&1; then
+  echo "Skipping AMO submission: 'web-ext' is not available in PATH."
+  echo "Install it (for example: npm install -g web-ext) and rerun manually:"
+  echo "  ./publish"
+  exit 0
+fi
+
+if ! command -v fzf >/dev/null 2>&1; then
+  echo "Error: fzf is required to pick a dist file."
+  echo "Install fzf and rerun ./publish."
+  exit 1
+fi
+
+if ! command -v unzip >/dev/null 2>&1; then
+  echo "Error: unzip is required to unpack the selected dist file."
+  echo "Install unzip and rerun ./publish."
+  exit 1
+fi
+
+if [[ -z "${AMO_JWT_ISSUER:-}" || -z "${AMO_JWT_SECRET:-}" ]]; then
+  echo "Skipping AMO submission: AMO_JWT_ISSUER and/or AMO_JWT_SECRET are not set."
+  echo "Set them in .env/.env.local or export them before running ./publish."
+  exit 0
+fi
+
+mapfile -t dist_candidates < <(
+  find "$DIST_DIR" -maxdepth 1 -type f -name "*.xpi" -print0 |
+    while IFS= read -r -d '' file; do
+      created_ts="$(stat -c %W "$file" 2>/dev/null || echo -1)"
+      modified_ts="$(stat -c %Y "$file")"
+      sort_ts="$created_ts"
+      if [[ "$sort_ts" -le 0 ]]; then
+        sort_ts="$modified_ts"
+      fi
+      printf '%s\t%s\n' "$sort_ts" "$file"
+    done |
+    sort -nr |
+    cut -f2-
+)
+
+if [[ "${#dist_candidates[@]}" -eq 0 ]]; then
+  echo "Error: no .xpi files found in $DIST_DIR"
+  echo "Run ./build first, then rerun ./publish."
+  exit 1
+fi
+
+selected_xpi="$(printf '%s\n' "${dist_candidates[@]}" | fzf --prompt='Select dist XPI to submit: ' --height=40% --reverse)"
+
+if [[ -z "$selected_xpi" ]]; then
+  echo "No file selected. Aborted."
+  exit 1
+fi
+
+TMP_SOURCE_DIR="$(mktemp -d)"
+cleanup() {
+  rm -rf "$TMP_SOURCE_DIR"
+}
+trap cleanup EXIT
+
+unzip -q "$selected_xpi" -d "$TMP_SOURCE_DIR"
+
+if [[ -n "$RELEASE_VERSION" ]]; then
+  echo "Submitting $RELEASE_VERSION to AMO (unlisted) from $(basename "$selected_xpi")..."
+else
+  echo "Submitting to AMO (unlisted) from $(basename "$selected_xpi")..."
+fi
+
+web-ext sign \
+  --source-dir "$TMP_SOURCE_DIR" \
+  --artifacts-dir "$DIST_DIR" \
+  --channel unlisted \
+  --api-key "$AMO_JWT_ISSUER" \
+  --api-secret "$AMO_JWT_SECRET"
+
+echo "AMO submission finished. Check dist/ for signed artifacts."
