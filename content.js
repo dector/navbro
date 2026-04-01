@@ -991,6 +991,29 @@
     }
   };
 
+  const placeCaretAtEnd = (element) => {
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+      const valueLength = element.value?.length ?? 0;
+      try {
+        element.setSelectionRange(valueLength, valueLength);
+      } catch {
+        // Some input types do not support selection range.
+      }
+      return;
+    }
+
+    if (element instanceof HTMLElement && element.isContentEditable) {
+      const selection = window.getSelection();
+      if (!selection) return;
+
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+  };
+
   const focusAdjacentImportantInput = (direction, label) => {
     const inputs = getImportantInputs();
     if (!inputs.length) {
@@ -1006,6 +1029,7 @@
     const target = inputs[targetIndex];
 
     target.focus();
+    placeCaretAtEnd(target);
     setInputAnchor(target);
     STATE.lastInputIndex = targetIndex;
     pushDebug(`${label} -> focus_input ${targetIndex + 1}/${inputs.length}`);
