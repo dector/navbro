@@ -89,12 +89,16 @@ else
   echo "Submitting to AMO (unlisted) from $(basename "$selected_xpi")..."
 fi
 
-web-ext sign \
-  --source-dir "$TMP_SOURCE_DIR" \
-  --artifacts-dir "$TMP_ARTIFACTS_DIR" \
-  --channel unlisted \
-  --api-key "$AMO_JWT_ISSUER" \
+web_ext_cmd=(
+  web-ext sign
+  --source-dir "$TMP_SOURCE_DIR"
+  --artifacts-dir "$TMP_ARTIFACTS_DIR"
+  --channel unlisted
+  --api-key "$AMO_JWT_ISSUER"
   --api-secret "$AMO_JWT_SECRET"
+)
+
+"${web_ext_cmd[@]}"
 
 mapfile -t signed_candidates < <(
   find "$TMP_ARTIFACTS_DIR" -maxdepth 1 -type f -name "*.xpi" -print0 |
