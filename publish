@@ -75,8 +75,9 @@ if [[ -z "$selected_xpi" ]]; then
 fi
 
 TMP_SOURCE_DIR="$(mktemp -d)"
+TMP_ARTIFACTS_DIR="$(mktemp -d)"
 cleanup() {
-  rm -rf "$TMP_SOURCE_DIR"
+  rm -rf "$TMP_SOURCE_DIR" "$TMP_ARTIFACTS_DIR"
 }
 trap cleanup EXIT
 
@@ -90,9 +91,30 @@ fi
 
 web-ext sign \
   --source-dir "$TMP_SOURCE_DIR" \
-  --artifacts-dir "$DIST_DIR" \
+  --artifacts-dir "$TMP_ARTIFACTS_DIR" \
   --channel unlisted \
   --api-key "$AMO_JWT_ISSUER" \
   --api-secret "$AMO_JWT_SECRET"
 
-echo "AMO submission finished. Check dist/ for signed artifacts."
+mapfile -t signed_candidates < <(
+  find "$TMP_ARTIFACTS_DIR" -maxdepth 1 -type f -name "*.xpi" -print0 |
+    while IFS= read -r -d '' file; do
+      printf '%s\t%s\n' "$(stat -c %Y "$file")" "$file"
+    done |
+    sort -nr |
+    cut -f2-
+)
+
+if [[ "${#signed_candidates[@]}" -eq 0 ]]; then
+  echo "AMO submission finished, but no signed .xpi was found in artifacts output."
+  exit 1
+fi
+
+signed_downloaded="${signed_candidates[0]}"
+selected_base="$(basename "$selected_xpi" .xpi)"
+selected_base="${selected_base%-signed}"
+signed_target="$DIST_DIR/${selected_base}-signed.xpi"
+
+cp -f "$signed_downloaded" "$signed_target"
+
+echo "AMO submission finished. Saved signed artifact to: $signed_target"
