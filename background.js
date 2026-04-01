@@ -60,6 +60,27 @@ const activateNextAudibleTab = async () => {
   await runtime.tabs.update(targetTab.id, { active: true });
 };
 
+const activateRandomTab = async () => {
+  const tabs = await getOrderedTabs();
+  if (!tabs.length) return;
+
+  const withIds = tabs.filter((tab) => tab.id);
+  if (!withIds.length) return;
+
+  const activeTab = withIds.find((tab) => tab.active);
+  const candidates = withIds.length > 1 && activeTab?.id
+    ? withIds.filter((tab) => tab.id !== activeTab.id)
+    : withIds;
+
+  if (!candidates.length) return;
+
+  const randomIndex = Math.floor(Math.random() * candidates.length);
+  const targetTab = candidates[randomIndex];
+  if (!targetTab?.id) return;
+
+  await runtime.tabs.update(targetTab.id, { active: true });
+};
+
 const listWindowsForTabMove = async () => {
   const activeTabs = await runtime.tabs.query({ currentWindow: true, active: true });
   const activeTab = activeTabs[0];
@@ -259,6 +280,10 @@ runtime.runtime.onMessage.addListener((message, sender) => {
 
   if (message.type === "navbro.tab.audio_next") {
     void activateNextAudibleTab();
+  }
+
+  if (message.type === "navbro.tab.random") {
+    void activateRandomTab();
   }
 
   if (message.type === "navbro.link.open_tab") {

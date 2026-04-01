@@ -378,7 +378,7 @@
         ["w / u", "close tab / restore tab"],
         ["gf", "open new tab after current"],
         ["' / - / +", "history back / back / forward"],
-        ["ga", "focus next tab playing audio"],
+        ["ga / gr", "focus next tab playing audio / random tab"],
         ["td", "move tab to selected window"],
         ["tD", "detach tab to new window"],
         ["Ctrl-Alt-h / l", "tab prev / next"],
@@ -1478,6 +1478,13 @@
       if (key === "a") {
         sendRuntimeMessage({ type: "navbro.tab.audio_next" });
         pushDebug("ga -> tab_audio_next, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "r") {
+        sendRuntimeMessage({ type: "navbro.tab.random" });
+        pushDebug("gr -> tab_random, reset");
         resetPendingSequence();
         return true;
       }
