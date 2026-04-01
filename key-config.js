@@ -45,6 +45,13 @@
         reset: 1,
       }),
     }),
+    youtube: Object.freeze({
+      playbackRates: Object.freeze([0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]),
+      qualityToggle: Object.freeze({
+        low: "large", // 480p
+        high: "hd1080", // 1080p
+      }),
+    }),
     debug: Object.freeze({
       maxEntries: 10,
     }),

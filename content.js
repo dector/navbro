@@ -49,6 +49,10 @@
       max: 3,
       presets: { min: 0.5, max: 2, reset: 1 },
     },
+    youtube: {
+      playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
+      qualityToggle: { low: "large", high: "hd1080" },
+    },
     debug: { maxEntries: 10 },
     hints: {
       alphabetMode: "both",
@@ -371,6 +375,8 @@
         ["yy / yY / yq", "copy URL / copy title+URL / QR"],
         ["zz / zi / zd", "zoom reset / in / out"],
         ["zI / zD / zm / zM", "zoom in++ / out++ / min / max"],
+        ["zr / zR", "YouTube speed +0.25 / -0.25"],
+        ["zq / zQ", "YouTube quality 1080p / 480p"],
       ],
     },
     {
@@ -781,6 +787,215 @@
         reset: Number(zoomConfig.presets?.reset) || 1,
       },
     });
+  };
+
+  const isYouTubePage = () => {
+    const host = window.location.hostname.toLowerCase();
+    return host === "youtube.com" || host.endsWith(".youtube.com");
+  };
+
+  const getYouTubeRateSteps = () => {
+    const configuredRates = Array.isArray(KEY_CONFIG.youtube?.playbackRates)
+      ? KEY_CONFIG.youtube.playbackRates
+      : [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
+    const normalized = configuredRates
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value) && value >= 0.1)
+      .map((value) => Math.round(value * 100) / 100)
+      .filter((value, index, arr) => arr.indexOf(value) === index)
+      .sort((a, b) => a - b);
+
+    return normalized.length ? normalized : [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+  };
+
+  const getActiveYouTubeVideo = () => {
+    const video = document.querySelector("video.html5-main-video") || document.querySelector("video");
+    return video instanceof HTMLVideoElement ? video : null;
+  };
+
+  const adjustYouTubePlaybackRate = (direction) => {
+    if (!isYouTubePage()) {
+      pushDebug(`z${direction > 0 ? "r" : "R"} -> skipped_not_youtube`);
+      return false;
+    }
+
+    const video = getActiveYouTubeVideo();
+    if (!video) {
+      showToast("YouTube video not found", 1200);
+      pushDebug(`z${direction > 0 ? "r" : "R"} -> no_video`);
+      return true;
+    }
+
+    const rates = getYouTubeRateSteps();
+    const currentRate = Number.isFinite(video.playbackRate) ? video.playbackRate : 1;
+
+    let currentIndex = rates.findIndex((rate) => Math.abs(rate - currentRate) < 0.001);
+    if (currentIndex < 0) {
+      currentIndex = rates.reduce(
+        (bestIndex, rate, index) => (Math.abs(rate - currentRate) < Math.abs(rates[bestIndex] - currentRate) ? index : bestIndex),
+        0,
+      );
+    }
+
+    const nextIndex = Math.max(0, Math.min(rates.length - 1, currentIndex + (direction > 0 ? 1 : -1)));
+    const nextRate = rates[nextIndex];
+
+    video.playbackRate = nextRate;
+    showToast(`Speed ${nextRate}x`, 900);
+    pushDebug(`z${direction > 0 ? "r" : "R"} -> yt_rate_${nextRate}x`);
+    return true;
+  };
+
+  const ensureYouTubeBridgeInjected = () => {
+    if (!isYouTubePage()) return;
+    if (document.documentElement?.hasAttribute("data-navbro-yt-bridge")) return;
+
+    const script = document.createElement("script");
+    script.textContent = `(() => {
+      if (window.__navbroYtBridgeInstalled) return;
+      window.__navbroYtBridgeInstalled = true;
+
+      const qualityRank = {
+        tiny: 144,
+        small: 240,
+        medium: 360,
+        large: 480,
+        hd720: 720,
+        hd1080: 1080,
+        hd1440: 1440,
+        hd2160: 2160,
+        hd2880: 2880,
+        highres: 4320,
+      };
+
+      const pickNearest = (targetQuality, availableQualities) => {
+        if (!Array.isArray(availableQualities) || !availableQualities.length) return null;
+        if (availableQualities.includes(targetQuality)) return targetQuality;
+        const targetRank = qualityRank[targetQuality] ?? 1080;
+        const known = availableQualities.filter((quality) => Number.isFinite(qualityRank[quality]));
+        if (!known.length) return availableQualities[0] || null;
+
+        return known.reduce((best, quality) => {
+          const candidateDistance = Math.abs(qualityRank[quality] - targetRank);
+          const bestDistance = Math.abs(qualityRank[best] - targetRank);
+          return candidateDistance < bestDistance ? quality : best;
+        }, known[0]);
+      };
+
+      window.addEventListener("message", (event) => {
+        const data = event.data;
+        if (event.source !== window || !data || data.__navbro !== true || data.target !== "yt-bridge") return;
+
+        const reply = (payload) => {
+          window.postMessage(
+            { __navbro: true, target: "navbro-content", requestId: data.requestId, ...payload },
+            "*",
+          );
+        };
+
+        try {
+          if (data.command !== "toggle-quality" && data.command !== "set-quality") {
+            reply({ ok: false, error: "unknown_command" });
+            return;
+          }
+
+          const player = document.getElementById("movie_player");
+          if (!player || typeof player.getAvailableQualityLevels !== "function" || typeof player.setPlaybackQuality !== "function") {
+            reply({ ok: false, error: "no_quality_api" });
+            return;
+          }
+
+          const available = player.getAvailableQualityLevels().filter((quality) => quality !== "auto" && typeof quality === "string");
+          if (!available.length) {
+            reply({ ok: false, error: "no_levels" });
+            return;
+          }
+
+          const highQuality = String(data.payload?.highQuality || "hd1080");
+          const lowQuality = String(data.payload?.lowQuality || "large");
+
+          let target = String(data.payload?.targetQuality || "");
+          if (!target) {
+            const currentQuality = typeof player.getPlaybackQuality === "function" ? String(player.getPlaybackQuality() || "") : "";
+            const prefersLow = currentQuality === highQuality || currentQuality === "highres" || currentQuality.startsWith("hd");
+            target = prefersLow ? lowQuality : highQuality;
+          }
+
+          const chosenQuality = pickNearest(target, available);
+          if (!chosenQuality) {
+            reply({ ok: false, error: "no_match" });
+            return;
+          }
+
+          if (typeof player.setPlaybackQualityRange === "function") {
+            player.setPlaybackQualityRange(chosenQuality, chosenQuality);
+          }
+          player.setPlaybackQuality(chosenQuality);
+          reply({ ok: true, quality: chosenQuality });
+        } catch (error) {
+          reply({ ok: false, error: String(error?.message || error || "unknown_error") });
+        }
+      });
+    })();`;
+
+    (document.documentElement || document.head || document.body).appendChild(script);
+    script.remove();
+    document.documentElement?.setAttribute("data-navbro-yt-bridge", "1");
+  };
+
+  const requestYouTubeBridge = (command, payload = {}) => {
+    ensureYouTubeBridgeInjected();
+
+    return new Promise((resolve) => {
+      const requestId = `navbro-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const timeoutId = window.setTimeout(() => {
+        window.removeEventListener("message", onMessage, true);
+        resolve({ ok: false, error: "timeout" });
+      }, 1200);
+
+      const onMessage = (event) => {
+        const data = event.data;
+        if (event.source !== window || !data || data.__navbro !== true || data.target !== "navbro-content") return;
+        if (data.requestId !== requestId) return;
+
+        clearTimeout(timeoutId);
+        window.removeEventListener("message", onMessage, true);
+        resolve(data);
+      };
+
+      window.addEventListener("message", onMessage, true);
+      window.postMessage({ __navbro: true, target: "yt-bridge", requestId, command, payload }, "*");
+    });
+  };
+
+  const setYouTubePreferredQuality = (targetPreset) => {
+    if (!isYouTubePage()) {
+      pushDebug(`z${targetPreset === "high" ? "q" : "Q"} -> skipped_not_youtube`);
+      return false;
+    }
+
+    const lowQuality = KEY_CONFIG.youtube?.qualityToggle?.low || "large";
+    const highQuality = KEY_CONFIG.youtube?.qualityToggle?.high || "hd1080";
+    const targetQuality = targetPreset === "low" ? lowQuality : highQuality;
+    const keyLabel = targetPreset === "low" ? "zQ" : "zq";
+
+    void requestYouTubeBridge("set-quality", { lowQuality, highQuality, targetQuality }).then((result) => {
+      if (result?.ok && typeof result.quality === "string") {
+        showToast(`Quality ${result.quality}`, 1000);
+        pushDebug(`${keyLabel} -> yt_quality_${result.quality}`);
+        return;
+      }
+
+      const reason = String(result?.error || "unknown");
+      if (reason === "no_quality_api") showToast("YouTube quality API unavailable", 1200);
+      else if (reason === "no_levels") showToast("No quality levels available", 1200);
+      else if (reason === "no_match") showToast("No matching quality available", 1200);
+      else showToast("Failed to set quality", 1200);
+      pushDebug(`${keyLabel} -> failed_${reason}`);
+    });
+
+    return true;
   };
 
   const copyTextToClipboard = async (text) => {
@@ -1662,6 +1877,30 @@
       if (key === "M") {
         requestTabZoom("preset_max");
         pushDebug("zM -> zoom_preset_max, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "r") {
+        adjustYouTubePlaybackRate(1);
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "R") {
+        adjustYouTubePlaybackRate(-1);
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "q") {
+        setYouTubePreferredQuality("high");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "Q") {
+        setYouTubePreferredQuality("low");
         resetPendingSequence();
         return true;
       }
