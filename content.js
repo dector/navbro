@@ -367,6 +367,7 @@
       title: "URL, yank & zoom",
       rows: [
         ["gu / gU", "URL parent / URL root"],
+        ["g_ / g$", "first tab / latest tab"],
         ["yy / yY / yq", "copy URL / copy title+URL / QR"],
         ["zz / zi / zd", "zoom reset / in / out"],
         ["zI / zD / zm / zM", "zoom in++ / out++ / min / max"],
@@ -1485,6 +1486,20 @@
       if (key === "r") {
         sendRuntimeMessage({ type: "navbro.tab.random" });
         pushDebug("gr -> tab_random, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "$") {
+        sendRuntimeMessage({ type: "navbro.tab.last" });
+        pushDebug("g$ -> tab_last, reset");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "_") {
+        sendRuntimeMessage({ type: "navbro.tab.first" });
+        pushDebug("g_ -> tab_first, reset");
         resetPendingSequence();
         return true;
       }

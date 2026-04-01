@@ -81,6 +81,22 @@ const activateRandomTab = async () => {
   await runtime.tabs.update(targetTab.id, { active: true });
 };
 
+const activateFirstTab = async () => {
+  const tabs = await getOrderedTabs();
+  const firstTab = tabs[0];
+  if (!firstTab?.id) return;
+
+  await runtime.tabs.update(firstTab.id, { active: true });
+};
+
+const activateLastTab = async () => {
+  const tabs = await getOrderedTabs();
+  const lastTab = tabs[tabs.length - 1];
+  if (!lastTab?.id) return;
+
+  await runtime.tabs.update(lastTab.id, { active: true });
+};
+
 const listWindowsForTabMove = async () => {
   const activeTabs = await runtime.tabs.query({ currentWindow: true, active: true });
   const activeTab = activeTabs[0];
@@ -284,6 +300,14 @@ runtime.runtime.onMessage.addListener((message, sender) => {
 
   if (message.type === "navbro.tab.random") {
     void activateRandomTab();
+  }
+
+  if (message.type === "navbro.tab.first") {
+    void activateFirstTab();
+  }
+
+  if (message.type === "navbro.tab.last") {
+    void activateLastTab();
   }
 
   if (message.type === "navbro.link.open_tab") {
