@@ -26,6 +26,8 @@
   const QR_OVERLAY_ID = "navbro-qr-overlay";
   const TAB_WINDOW_PICKER_ID = "navbro-tab-window-picker";
   const INPUT_ANCHOR_CLASS = "navbro-input-anchor";
+  const YT_FOCUS_STYLE_ID = "navbro-yt-focus-style";
+  const YT_FOCUS_ATTR = "data-navbro-yt-focus";
   const KEY_CONFIG = window.NAVBRO_KEY_CONFIG || {
     modeToggle: { key: "Insert", ctrl: true, alt: false, shift: false, meta: false },
     passOnceToggle: { key: "v", ctrl: true, alt: false, shift: false, meta: false },
@@ -377,6 +379,7 @@
         ["zI / zD / zm / zM", "zoom in++ / out++ / min / max"],
         ["zr / zR", "YouTube speed +0.25 / -0.25"],
         ["zq / zQ", "YouTube quality 1080p / 480p"],
+        ["zf", "YouTube focus video"],
       ],
     },
     {
@@ -794,6 +797,10 @@
     return host === "youtube.com" || host.endsWith(".youtube.com");
   };
 
+  const isYouTubeWatchPage = () => {
+    return isYouTubePage() && window.location.pathname === "/watch";
+  };
+
   const getYouTubeRateSteps = () => {
     const configuredRates = Array.isArray(KEY_CONFIG.youtube?.playbackRates)
       ? KEY_CONFIG.youtube.playbackRates
@@ -812,6 +819,97 @@
   const getActiveYouTubeVideo = () => {
     const video = document.querySelector("video.html5-main-video") || document.querySelector("video");
     return video instanceof HTMLVideoElement ? video : null;
+  };
+
+  const ensureYouTubeFocusStyleInjected = () => {
+    if (document.getElementById(YT_FOCUS_STYLE_ID)) return;
+
+    const style = document.createElement("style");
+    style.id = YT_FOCUS_STYLE_ID;
+    style.textContent = `
+      html[${YT_FOCUS_ATTR}="1"],
+      html[${YT_FOCUS_ATTR}="1"] body {
+        overflow: hidden !important;
+        background: #000 !important;
+      }
+
+      html[${YT_FOCUS_ATTR}="1"] ytd-masthead,
+      html[${YT_FOCUS_ATTR}="1"] #masthead-container,
+      html[${YT_FOCUS_ATTR}="1"] #guide,
+      html[${YT_FOCUS_ATTR}="1"] ytd-mini-guide-renderer,
+      html[${YT_FOCUS_ATTR}="1"] #secondary,
+      html[${YT_FOCUS_ATTR}="1"] #below,
+      html[${YT_FOCUS_ATTR}="1"] #related,
+      html[${YT_FOCUS_ATTR}="1"] ytd-comments,
+      html[${YT_FOCUS_ATTR}="1"] #chat,
+      html[${YT_FOCUS_ATTR}="1"] #panels,
+      html[${YT_FOCUS_ATTR}="1"] ytd-merch-shelf-renderer,
+      html[${YT_FOCUS_ATTR}="1"] ytd-engagement-panel-section-list-renderer,
+      html[${YT_FOCUS_ATTR}="1"] ytd-miniplayer,
+      html[${YT_FOCUS_ATTR}="1"] tp-yt-app-drawer {
+        display: none !important;
+      }
+
+      html[${YT_FOCUS_ATTR}="1"] ytd-watch-flexy,
+      html[${YT_FOCUS_ATTR}="1"] ytd-watch-flexy #columns,
+      html[${YT_FOCUS_ATTR}="1"] ytd-watch-flexy #primary,
+      html[${YT_FOCUS_ATTR}="1"] ytd-watch-flexy #player,
+      html[${YT_FOCUS_ATTR}="1"] ytd-watch-flexy #player-container-outer,
+      html[${YT_FOCUS_ATTR}="1"] ytd-watch-flexy #player-container-inner,
+      html[${YT_FOCUS_ATTR}="1"] ytd-watch-flexy ytd-player {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      html[${YT_FOCUS_ATTR}="1"] ytd-watch-flexy #movie_player,
+      html[${YT_FOCUS_ATTR}="1"] ytd-watch-flexy .html5-video-player,
+      html[${YT_FOCUS_ATTR}="1"] ytd-watch-flexy video {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        margin: 0 !important;
+        background: #000 !important;
+      }
+
+      html[${YT_FOCUS_ATTR}="1"] ytd-watch-flexy video {
+        object-fit: contain !important;
+      }
+    `;
+
+    (document.head || document.documentElement).appendChild(style);
+  };
+
+  const activateYouTubeFocusMode = () => {
+    if (!isYouTubePage()) {
+      pushDebug("zf -> skipped_not_youtube");
+      return false;
+    }
+
+    if (!isYouTubeWatchPage()) {
+      pushDebug("zf -> skipped_not_watch");
+      return true;
+    }
+
+    if (!getActiveYouTubeVideo()) {
+      pushDebug("zf -> no_video");
+      return true;
+    }
+
+    ensureYouTubeFocusStyleInjected();
+
+    if (document.documentElement?.getAttribute(YT_FOCUS_ATTR) === "1") {
+      pushDebug("zf -> yt_focus_already_on");
+      return true;
+    }
+
+    document.documentElement?.setAttribute(YT_FOCUS_ATTR, "1");
+    pushDebug("zf -> yt_focus_on");
+    return true;
   };
 
   const adjustYouTubePlaybackRate = (direction) => {
@@ -1901,6 +1999,12 @@
 
       if (key === "Q") {
         setYouTubePreferredQuality("low");
+        resetPendingSequence();
+        return true;
+      }
+
+      if (key === "f") {
+        activateYouTubeFocusMode();
         resetPendingSequence();
         return true;
       }
