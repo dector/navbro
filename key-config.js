@@ -51,6 +51,7 @@
         low: "large", // 480p
         high: "hd1080", // 1080p
       }),
+      qualityJump: "hd1440", // zQ target (falls back to nearest available quality)
     }),
     debug: Object.freeze({
       maxEntries: 10,

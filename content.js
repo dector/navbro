@@ -54,6 +54,7 @@
     youtube: {
       playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
       qualityToggle: { low: "large", high: "hd1080" },
+      qualityJump: "hd1440",
     },
     debug: { maxEntries: 10 },
     hints: {
@@ -378,7 +379,7 @@
         ["zz / zi / zd", "zoom reset / in / out"],
         ["zI / zD / zm / zM", "zoom in++ / out++ / min / max"],
         ["zr / zR", "YouTube speed +0.25 / -0.25"],
-        ["zq / zQ", "YouTube quality 1080p / 480p"],
+        ["zq / zQ", "YouTube quality toggle 480p↔1080p / jump 1440p"],
         ["zf", "YouTube focus video"],
       ],
     },
@@ -1067,18 +1068,13 @@
     });
   };
 
-  const setYouTubePreferredQuality = (targetPreset) => {
+  const applyYouTubeQualityRequest = (keyLabel, command, payload) => {
     if (!isYouTubePage()) {
-      pushDebug(`z${targetPreset === "high" ? "q" : "Q"} -> skipped_not_youtube`);
+      pushDebug(`${keyLabel} -> skipped_not_youtube`);
       return false;
     }
 
-    const lowQuality = KEY_CONFIG.youtube?.qualityToggle?.low || "large";
-    const highQuality = KEY_CONFIG.youtube?.qualityToggle?.high || "hd1080";
-    const targetQuality = targetPreset === "low" ? lowQuality : highQuality;
-    const keyLabel = targetPreset === "low" ? "zQ" : "zq";
-
-    void requestYouTubeBridge("set-quality", { lowQuality, highQuality, targetQuality }).then((result) => {
+    void requestYouTubeBridge(command, payload).then((result) => {
       if (result?.ok && typeof result.quality === "string") {
         showToast(`Quality ${result.quality}`, 1000);
         pushDebug(`${keyLabel} -> yt_quality_${result.quality}`);
@@ -1094,6 +1090,19 @@
     });
 
     return true;
+  };
+
+  const toggleYouTubePreferredQuality = () => {
+    const lowQuality = KEY_CONFIG.youtube?.qualityToggle?.low || "large";
+    const highQuality = KEY_CONFIG.youtube?.qualityToggle?.high || "hd1080";
+    return applyYouTubeQualityRequest("zq", "toggle-quality", { lowQuality, highQuality });
+  };
+
+  const jumpYouTubeQuality = () => {
+    const lowQuality = KEY_CONFIG.youtube?.qualityToggle?.low || "large";
+    const highQuality = KEY_CONFIG.youtube?.qualityToggle?.high || "hd1080";
+    const targetQuality = KEY_CONFIG.youtube?.qualityJump || "hd1440";
+    return applyYouTubeQualityRequest("zQ", "set-quality", { lowQuality, highQuality, targetQuality });
   };
 
   const copyTextToClipboard = async (text) => {
@@ -1992,13 +2001,13 @@
       }
 
       if (key === "q") {
-        setYouTubePreferredQuality("high");
+        toggleYouTubePreferredQuality();
         resetPendingSequence();
         return true;
       }
 
       if (key === "Q") {
-        setYouTubePreferredQuality("low");
+        jumpYouTubeQuality();
         resetPendingSequence();
         return true;
       }
