@@ -42,6 +42,8 @@ Legend:
 ### Tab operations
 - [x] Previous tab (`Alt-h`, `Alt-,`, `Ctrl-Alt-h`)
 - [x] Next tab (`Alt-l`, `Alt-.`, `Ctrl-Alt-l`)
+- [x] First tab (`Alt-0`, `g_`)
+- [x] Last tab (`Alt-$`, `g$`)
 - [ ] Previous tab (`H`)
 - [ ] Next tab (`L`)
 - [ ] Previous tab (`(`)
@@ -52,6 +54,8 @@ Legend:
 - [x] Close tab (`w`)
 - [x] Restore closed tab (`u`)
 - [ ] Restore closed window/tab stack (`U`)
+- [x] Move tab right (`Alt-Shift-l`, `Alt-Shift-.`)
+- [x] Move tab left (`Alt-Shift-h`, `Alt-Shift-,`)
 - [ ] Move tab right (`>>`)
 - [ ] Move tab left (`<<`)
 - [ ] Move tab to start

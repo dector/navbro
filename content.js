@@ -394,7 +394,8 @@
         ["tD", "detach tab to new window"],
         ["Alt-h / l, Alt-, / .", "tab prev / next"],
         ["Ctrl-Alt-h / l", "tab prev / next"],
-        ["Alt-Shift-h / l", "move tab left / right"],
+        ["Alt-0 / Alt-$", "first / last tab"],
+        ["Alt-Shift-h / l, Alt-Shift-, / .", "move tab left / right"],
       ],
     },
     {
@@ -1746,6 +1747,12 @@
         pushDebug(`Alt-${key} -> tab_next`);
         return true;
       }
+
+      if (key === "0") {
+        sendRuntimeMessage({ type: "navbro.tab.first" });
+        pushDebug("Alt-0 -> tab_first");
+        return true;
+      }
     }
 
     if (event.altKey && event.ctrlKey && !event.metaKey && !event.shiftKey) {
@@ -1763,15 +1770,21 @@
     }
 
     if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey) {
-      if (lowerKey === "h") {
-        sendRuntimeMessage({ type: "navbro.tab.move_prev" });
-        pushDebug("Alt-Shift-h -> tab_move_prev");
+      if (key === "$") {
+        sendRuntimeMessage({ type: "navbro.tab.last" });
+        pushDebug("Alt-$ -> tab_last");
         return true;
       }
 
-      if (lowerKey === "l") {
+      if (lowerKey === "h" || key === "," || key === "<") {
+        sendRuntimeMessage({ type: "navbro.tab.move_prev" });
+        pushDebug(`Alt-Shift-${key} -> tab_move_prev`);
+        return true;
+      }
+
+      if (lowerKey === "l" || key === "." || key === ">") {
         sendRuntimeMessage({ type: "navbro.tab.move_next" });
-        pushDebug("Alt-Shift-l -> tab_move_next");
+        pushDebug(`Alt-Shift-${key} -> tab_move_next`);
         return true;
       }
     }
