@@ -392,6 +392,7 @@
         ["ga / gr", "focus next tab playing audio / random tab"],
         ["td", "move tab to selected window"],
         ["tD", "detach tab to new window"],
+        ["Alt-h / l, Alt-, / .", "tab prev / next"],
         ["Ctrl-Alt-h / l", "tab prev / next"],
         ["Alt-Shift-h / l", "move tab left / right"],
       ],
@@ -1734,15 +1735,15 @@
     const lowerKey = key.length === 1 ? key.toLowerCase() : key;
 
     if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
-      if (lowerKey === "h") {
+      if (lowerKey === "h" || key === ",") {
         sendRuntimeMessage({ type: "navbro.tab.prev" });
-        pushDebug("Alt-h -> tab_prev");
+        pushDebug(`Alt-${key} -> tab_prev`);
         return true;
       }
 
-      if (lowerKey === "l") {
+      if (lowerKey === "l" || key === ".") {
         sendRuntimeMessage({ type: "navbro.tab.next" });
-        pushDebug("Alt-l -> tab_next");
+        pushDebug(`Alt-${key} -> tab_next`);
         return true;
       }
     }

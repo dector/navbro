@@ -40,8 +40,8 @@ Legend:
 - [x] Jump to bottom (`G`)
 
 ### Tab operations
-- [x] Previous tab (`Ctrl-Alt-h`)
-- [x] Next tab (`Ctrl-Alt-l`)
+- [x] Previous tab (`Alt-h`, `Alt-,`, `Ctrl-Alt-h`)
+- [x] Next tab (`Alt-l`, `Alt-.`, `Ctrl-Alt-l`)
 - [ ] Previous tab (`H`)
 - [ ] Next tab (`L`)
 - [ ] Previous tab (`(`)
