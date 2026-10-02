@@ -14,6 +14,7 @@
     toastHideTimerId: null,
     toastCleanupTimerId: null,
     qrOverlayEl: null,
+    helpSession: null,
     tabWindowPickerSession: null,
     debugEntries: [],
     debugViewIndex: 0,
@@ -419,20 +420,59 @@
       .replaceAll("'", "&#39;");
   };
 
+  const closeHotkeysHelp = () => {
+    const session = STATE.helpSession;
+    if (!session) return;
+    STATE.helpSession = null;
+    session.overlay.remove();
+    if (session.previousFocus?.isConnected) session.previousFocus.focus({ preventScroll: true });
+  };
+
   const showHotkeysHelp = () => {
-    const allRows = HOTKEYS_HELP_GROUPS.flatMap((group) => group.rows);
-    const col1Width = allRows.reduce((max, [keys]) => Math.max(max, keys.length), 0);
-    const lines = ["<strong>Hotkeys (nav mode):</strong>"];
+    if (!document.body || STATE.helpSession) return;
 
-    HOTKEYS_HELP_GROUPS.forEach((group) => {
-      lines.push("");
-      lines.push(`<strong>${escapeHtml(group.title)}:</strong>`);
-      group.rows.forEach(([keys, action]) => {
-        lines.push(`${escapeHtml(keys.padEnd(col1Width))}  ${escapeHtml(action)}`);
-      });
-    });
-
-    showToast(`<pre style=\"margin:0\">${lines.join("\n")}</pre>`, 11000, { isHtml: true });
+    const overlay = document.createElement("div");
+    overlay.id = "navbro-hotkeys-help";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);padding:24px;box-sizing:border-box;";
+    const dialog = document.createElement("section");
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-label", "Navbro hotkeys help");
+    dialog.tabIndex = -1;
+    dialog.style.cssText = "box-sizing:border-box;width:960px;max-width:100%;max-height:90vh;overflow:auto;padding:28px;border:0;border-radius:16px;background:rgba(25,29,38,.96);color:#b9c2d0;font:16px/1.6 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;box-shadow:0 16px 64px #0006;outline:none;text-align:left;color-scheme:dark;";
+    const title = document.createElement("h2");
+    title.textContent = "Hotkeys (nav mode)";
+    title.style.cssText = "margin:0;font-family:inherit;font-weight:bold;font-size:24px;line-height:1.4;color:#c6d6ec;";
+    const instructions = document.createElement("p");
+    instructions.textContent = "j/k to scroll · / to search help · Esc to close";
+    instructions.style.cssText = "margin:8px 0 20px;color:#94a3b8;";
+    const search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = "Search hotkeys…";
+    search.setAttribute("aria-label", "Search hotkeys help");
+    search.hidden = true;
+    search.style.cssText = "box-sizing:border-box;width:100%;padding:12px 14px;margin-bottom:16px;border:0;border-radius:8px;background:#252e3d;color:#c6d6ec;font:inherit;outline:none;box-shadow:inset 0 0 0 1px #85b5df55;";
+    const results = document.createElement("div");
+    const render = () => {
+      const query = search.value.trim().toLowerCase();
+      const groups = HOTKEYS_HELP_GROUPS.map((group) => {
+        const rows = group.rows.filter(([keys, action]) =>
+          `${group.title} ${keys} ${action}`.toLowerCase().includes(query),
+        );
+        if (!rows.length) return "";
+        return `<section style="margin:0;padding:0;border:0;background:transparent"><h3 style="margin:22px 0 10px;font-family:inherit;font-size:18px;font-weight:600;line-height:1.4;color:#8bbbc4">${escapeHtml(group.title)}</h3>${rows.map(([keys, action]) =>
+          `<div style="display:grid;grid-template-columns:minmax(140px,40%) 1fr;gap:16px;align-items:baseline;padding:5px 0"><span><kbd style="display:inline-block;padding:3px 9px;border:0;border-radius:6px;background:#303c50;color:#b9cfee;font:inherit;font-size:14px;box-shadow:0 2px 0 #10172266;white-space:normal">${escapeHtml(keys)}</kbd></span><span>${escapeHtml(action)}</span></div>`,
+        ).join("")}</section>`;
+      }).join("");
+      results.innerHTML = groups || "<p>No matching hotkeys.</p>";
+    };
+    search.addEventListener("input", render);
+    dialog.append(title, instructions, search, results);
+    overlay.appendChild(dialog);
+    STATE.helpSession = { overlay, dialog, search, previousFocus: document.activeElement };
+    document.body.appendChild(overlay);
+    render();
+    dialog.focus({ preventScroll: true });
   };
 
   const showToast = (message, durationMs = 2000, options = {}) => {
@@ -1371,7 +1411,7 @@
   };
 
   const syncModeWithFocusedInput = () => {
-    if (STATE.mode === "pass" || STATE.mode === "hint") {
+    if (STATE.helpSession || STATE.mode === "pass" || STATE.mode === "hint") {
       return;
     }
 
@@ -2232,6 +2272,31 @@
   };
 
   const onKeyDown = (event) => {
+    if (STATE.helpSession) {
+      const { dialog, search } = STATE.helpSession;
+      // Keep help input away from page shortcuts and the navigation engine.
+      event.stopImmediatePropagation();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeHotkeysHelp();
+      } else if (event.key === "/" && document.activeElement !== search) {
+        event.preventDefault();
+        search.hidden = false;
+        search.focus({ preventScroll: true });
+      } else if ((event.key === "j" || event.key === "k") && document.activeElement !== search && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        dialog.scrollBy({ top: event.key === "j" ? KEY_CONFIG.scroll.step : -KEY_CONFIG.scroll.step, behavior: "instant" });
+      } else if (event.key === "Tab") {
+        event.preventDefault();
+        (search.hidden ? dialog : search).focus({ preventScroll: true });
+      } else if (document.activeElement !== search || event.ctrlKey || event.metaKey || event.altKey) {
+        event.preventDefault();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+      }
+      return;
+    }
+
     if (matchesCombo(event, KEY_CONFIG.modeToggle)) {
       event.preventDefault();
       event.stopPropagation();
@@ -2325,6 +2390,10 @@
   };
 
   const onKeyUp = (event) => {
+    if (STATE.helpSession) {
+      event.stopImmediatePropagation();
+      return;
+    }
     if (STATE.mode !== "nav") {
       return;
     }
