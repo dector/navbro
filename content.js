@@ -542,6 +542,52 @@
     return true;
   };
 
+  // Page-owned shortcuts are read once, just like the full website opt-out.
+  const parsePassthroughKey = (token) => {
+    const modifiers = { ctrl: false, alt: false, shift: false, meta: false };
+    let key = token;
+    let match;
+    while ((match = /^(Ctrl|Alt|Shift|Meta)\+/i.exec(key))) {
+      const modifier = match[1].toLowerCase();
+      if (modifiers[modifier]) return null;
+      modifiers[modifier] = true;
+      key = key.slice(match[0].length);
+    }
+
+    const namedKeys = [
+      "Enter", "Escape", "Tab", "Backspace", "Delete", "Insert", "Home", "End",
+      "PageUp", "PageDown", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+      "Space", ...Array.from({ length: 24 }, (_, i) => `F${i + 1}`),
+    ];
+    const namedKey = namedKeys.find((name) => name.toLowerCase() === key.toLowerCase());
+    if (namedKey) {
+      key = namedKey === "Space" ? " " : namedKey;
+    } else if (key.length !== 1) {
+      return null; // Sequences and unknown key names are not supported.
+    }
+
+    const letter = /^[a-z]$/i.test(key);
+    if (letter && key === key.toUpperCase()) modifiers.shift = true;
+    return {
+      ...modifiers,
+      key: letter ? key.toLowerCase() : key,
+      letter,
+      // Symbols can require Shift on some keyboard layouts (e.g. '?' or '+').
+      matchShift: modifiers.shift || letter || !!namedKey,
+    };
+  };
+
+  const sitePassthroughKeys = Array.from(
+    document.head?.querySelectorAll('meta[name="navbro-passthrough-keys"]') || [],
+  ).flatMap((meta) => (meta.getAttribute("content") || "").split(/\s+/))
+    .map(parsePassthroughKey).filter(Boolean);
+
+  const isSitePassthroughKey = (event) => sitePassthroughKeys.some((combo) => (
+    (combo.letter ? event.key.toLowerCase() : event.key) === combo.key &&
+    event.ctrlKey === combo.ctrl && event.altKey === combo.alt &&
+    event.metaKey === combo.meta && (!combo.matchShift || event.shiftKey === combo.shift)
+  ));
+
   const matchesCombo = (event, combo) => {
     return (
       event.key === combo.key &&
@@ -2510,6 +2556,12 @@
   };
 
   const onKeyDown = (event) => {
+    if (isSitePassthroughKey(event)) {
+      resetPendingSequence();
+      if (STATE.mode === "nav" && STATE.passOnceArmed) consumePassOnce(event.key);
+      return;
+    }
+
     if (STATE.helpSession) {
       const { dialog, search } = STATE.helpSession;
       // Keep help input away from page shortcuts and the navigation engine.
@@ -2633,6 +2685,7 @@
   };
 
   const onKeyUp = (event) => {
+    if (isSitePassthroughKey(event)) return;
     if (STATE.helpSession || STATE.tabPickerSession) {
       event.stopImmediatePropagation();
       return;

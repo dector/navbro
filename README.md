@@ -100,6 +100,14 @@ Website opt-out:
 - When disabled, navbro adds no UI or keyboard listeners; even `Ctrl-Insert` is left untouched.
 - The `content` value ignores surrounding whitespace and letter case. Other values do not disable navbro.
 
+Website key passthrough:
+- Add `<meta name="navbro-passthrough-keys" content="j k / Ctrl+k">` inside the page's `<head>` to reserve specific keys for the page/browser while keeping navbro active.
+- Use whitespace-separated keys or combos with `Ctrl+`, `Alt+`, `Shift+`, and `Meta+`. Modifier and named-key spelling ignores case.
+- Letters are case-sensitive: `j` reserves lowercase, `J` (or `Shift+j`) reserves uppercase. Extra modifiers do not match. Symbols match their produced character, with or without Shift unless explicitly specified.
+- Named keys include `Space`, `Enter`, `Escape`, `Tab`, `Backspace`, `Delete`, `Insert`, `Home`, `End`, `PageUp`, `PageDown`, `ArrowUp/Down/Left/Right`, and `F1`–`F24`.
+- Sequences such as `gg` and invalid entries are ignored. Multiple matching meta tags combine their keys. Metadata is checked once at startup; reload after changes.
+- Reserved keys bypass all navbro key handling, including mode toggles and overlay controls. They also reset pending navbro sequences and consume an armed one-shot passthrough.
+
 Indicator settings:
 - `indicator.passModeVibisibility: "hide-filterlist-only"` (default)
   - `"show-always"` — show pass badge always

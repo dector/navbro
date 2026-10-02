@@ -27,7 +27,8 @@ function setup() {
   const context = vm.createContext({ document });
   const helpers = source.slice(source.indexOf("  const HOTKEYS_HELP_GROUPS"), source.indexOf("  const showToast ="));
   const handler = source.slice(source.indexOf("  const onKeyDown ="), source.indexOf("    if (matchesCombo(event, KEY_CONFIG.modeToggle))", source.indexOf("  const onKeyDown =")));
-  vm.runInContext(`const STATE = { helpSession: null }; const KEY_CONFIG = { scroll: { step: 120 } }; ${helpers}\n${handler}}; globalThis.api = { STATE, showHotkeysHelp, onKeyDown };`, context);
+  const passthrough = source.slice(source.indexOf("  const parsePassthroughKey ="), source.indexOf("  const matchesCombo ="));
+  vm.runInContext(`const STATE = { helpSession: null }; const KEY_CONFIG = { scroll: { step: 120 } }; ${passthrough}\n${helpers}\n${handler}}; globalThis.api = { STATE, showHotkeysHelp, onKeyDown };`, context);
   return { ...context.api, document, previousFocus };
 }
 
