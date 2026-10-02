@@ -136,6 +136,15 @@ One-shot pass-through:
 - [x] YouTube quality toggle 480p↔1080p (`zq`) + jump to 1440p (`zQ`)
 - [x] YouTube focus video mode (`zf`)
 
+## Releases
+
+Run `ror release` (or `./tools/release.sh`) to promote a snapshot, commit and tag
+it, create the next snapshot commit, then choose whether to push. Tag pushes
+build and sign an unlisted Firefox XPI, publish a GitHub Release, and update the
+`updates` branch for Firefox automatic updates.
+
+See [release setup and recovery](docs/ci.md) for required secrets and permissions.
+
 ## Non-goals (for now)
 
 - Full Tridactyl compatibility

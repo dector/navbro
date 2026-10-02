@@ -1,0 +1,92 @@
+name: Signed Firefox release
+on:
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: write
+# Serialize signing/upload/update publication, but still compare versions:
+# GitHub does not guarantee run ordering.
+concurrency:
+  group: firefox-releases
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate release tag and prerequisites
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$AMO_JWT_ISSUER" || { echo 'Missing AMO_JWT_ISSUER secret'; exit 1; }
+          test -n "$AMO_JWT_SECRET" || { echo 'Missing AMO_JWT_SECRET secret'; exit 1; }
+          for tool in python3 zip unzip gh; do command -v "$tool" >/dev/null; done
+          python3 - <<'PY'
+          import json, os, re
+          m = json.load(open('manifest.json'))
+          v = m['version']
+          assert re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', v), 'Expected release version'
+          assert os.environ['RELEASE_TAG'] == 'v' + v, 'Tag/manifest mismatch'
+          assert m['browser_specific_settings']['gecko']['update_url'] == 'https://raw.githubusercontent.com/dector/navbro/updates/updates.json'
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write('RELEASE_VERSION=' + v + '\n')
+          PY
+      - name: Test and build tagged commit
+        run: |
+          node --test tests/*.test.cjs
+          ./build
+      - name: Check for previously published signed asset
+        id: published
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          export ASSET_NAME="navbro-$RELEASE_VERSION-signed.xpi"
+          exists=false
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            exists="$(gh release view "$RELEASE_TAG" --json assets --jq '[.assets[].name] | index(env.ASSET_NAME) != null')"
+          fi
+          echo "exists=$exists" >> "$GITHUB_OUTPUT"
+      - name: Install signing tool
+        if: steps.published.outputs.exists != 'true'
+        run: npm install --global web-ext@8.9.0
+      - name: Sign through AMO (unlisted)
+        if: steps.published.outputs.exists != 'true'
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: ./tools/publish.sh "$RELEASE_VERSION"
+      - name: Upload signed GitHub Release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          asset="dist/navbro-$RELEASE_VERSION-signed.xpi"
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --verify-tag --title "navbro $RELEASE_VERSION" --generate-notes --latest=false
+          fi
+          restricted="$(gh release view "$RELEASE_TAG" --json isDraft,isPrerelease --jq '.isDraft or .isPrerelease')"
+          [[ "$restricted" == false ]] || { echo 'Expected a published stable release'; exit 1; }
+          export ASSET_NAME="$(basename "$asset")"
+          exists="$(gh release view "$RELEASE_TAG" --json assets --jq '[.assets[].name] | index(env.ASSET_NAME) != null')"
+          if [[ "$exists" == true ]]; then
+            # Preserve immutable published bytes and their update_hash on reruns.
+            gh release download "$RELEASE_TAG" --pattern "$ASSET_NAME" --dir dist --clobber
+          else
+            gh release upload "$RELEASE_TAG" "$asset"
+          fi
+      - name: Publish Firefox update metadata
+        run: |
+          ./tools/push-updates.sh "dist/navbro-$RELEASE_VERSION-signed.xpi" \
+            "https://github.com/dector/navbro/releases/download/v$RELEASE_VERSION/navbro-$RELEASE_VERSION-signed.xpi"

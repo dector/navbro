@@ -1,0 +1,5 @@
+task release {
+    description "Creates release from current snapshot"
+
+    cmd "./tools/release.sh"
+}

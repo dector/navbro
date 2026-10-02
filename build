@@ -57,7 +57,7 @@ done
 (
   cd "$ROOT_DIR"
   rm -f "$SOURCES_ZIP"
-  zip -qr "$SOURCES_ZIP" . -x "dist/*" ".git/*" ".pi/*"
+  zip -qr "$SOURCES_ZIP" . -x "dist/*" ".git/*" ".pi/*" ".env" ".env.*"
 )
 
 echo "Built: $OUT_FILE"
