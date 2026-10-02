@@ -44,6 +44,8 @@ Legend:
 - [x] Next tab (`Alt-l`, `Alt-.`, `Ctrl-Alt-l`)
 - [x] First tab (`Alt-0`, `g_`)
 - [x] Last tab (`Alt-$`, `g$`)
+- [x] Search tabs in the current window (`gt`): `/` filters titles and URLs; `j/k` or arrows select; Enter jumps; Esc closes
+- [x] Previous dialog jump (`g'`): walks back through the last 10 jump origins per window, skipping closed/moved tabs (session-only history)
 - [ ] Previous tab (`H`)
 - [ ] Next tab (`L`)
 - [ ] Previous tab (`(`)

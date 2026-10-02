@@ -267,6 +267,217 @@ const applyActiveTabZoom = async (payload = {}) => {
   await runtime.tabs.setZoom(tabId, nextZoom);
 };
 
+const TAB_PICKER_HISTORY_LIMIT = 10;
+const TAB_PICKER_HISTORY_STORAGE_KEY = "navbro.tabPickerHistory";
+const tabPickerHistoryByWindow = new Map();
+let tabPickerHistoryLoaded = false;
+let tabPickerHistoryLoadPromise = null;
+let tabPickerHistoryQueue = Promise.resolve();
+
+// Serialize history reads/writes so rapid repeated jumps cannot read the same
+// snapshot and activate the same target twice (or clobber each other).
+const runTabPickerHistoryTask = (task) => {
+  const result = tabPickerHistoryQueue.then(task, task);
+  tabPickerHistoryQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+};
+
+const getTabPickerWindowId = (sender) => {
+  const windowId = sender?.tab?.windowId;
+  return typeof windowId === "number" ? windowId : null;
+};
+
+const getTabPickerSessionStorage = () => {
+  const area = runtime.storage?.session;
+  if (!area || typeof area.get !== "function" || typeof area.set !== "function") return null;
+  return area;
+};
+
+const loadTabPickerHistory = () => {
+  if (tabPickerHistoryLoaded) return Promise.resolve();
+  if (!tabPickerHistoryLoadPromise) {
+    tabPickerHistoryLoadPromise = (async () => {
+      const area = getTabPickerSessionStorage();
+      if (area) {
+        try {
+          const stored = await area.get(TAB_PICKER_HISTORY_STORAGE_KEY);
+          const data = stored?.[TAB_PICKER_HISTORY_STORAGE_KEY];
+          if (data && typeof data === "object") {
+            for (const [rawWindowId, rawHistory] of Object.entries(data)) {
+              const windowId = Number(rawWindowId);
+              if (!Number.isInteger(windowId) || !Array.isArray(rawHistory)) continue;
+              const history = rawHistory
+                .filter((tabId) => Number.isInteger(tabId))
+                .slice(-TAB_PICKER_HISTORY_LIMIT);
+              if (history.length) tabPickerHistoryByWindow.set(windowId, history);
+            }
+          }
+        } catch {
+          // Ignore unavailable/corrupt session storage and keep memory-only history.
+        }
+      }
+      tabPickerHistoryLoaded = true;
+    })();
+  }
+  return tabPickerHistoryLoadPromise;
+};
+
+const persistTabPickerHistory = async () => {
+  await loadTabPickerHistory();
+  const area = getTabPickerSessionStorage();
+  if (!area) return;
+
+  const data = {};
+  for (const [windowId, history] of tabPickerHistoryByWindow.entries()) {
+    data[String(windowId)] = history;
+  }
+
+  try {
+    await area.set({ [TAB_PICKER_HISTORY_STORAGE_KEY]: data });
+  } catch {
+    // Keep serving from memory if session storage writes fail.
+  }
+};
+
+const readTabPickerWindowTabs = async (windowId) => {
+  const tabs = await runtime.tabs.query({ windowId });
+  return tabs.slice().sort((a, b) => a.index - b.index);
+};
+
+const listTabPickerTabs = async (sender) => {
+  const windowId = getTabPickerWindowId(sender);
+  if (windowId == null) return { tabs: [] };
+
+  const tabs = await readTabPickerWindowTabs(windowId);
+  return {
+    tabs: tabs.map((tab) => ({
+      id: tab.id,
+      title: tab.title || "",
+      url: tab.url || "",
+      active: !!tab.active,
+      index: tab.index,
+    })),
+  };
+};
+
+const writeTabPickerHistory = (windowId, history) => {
+  if (history.length) {
+    tabPickerHistoryByWindow.set(windowId, history);
+  } else {
+    tabPickerHistoryByWindow.delete(windowId);
+  }
+};
+
+const recordTabPickerJump = async (windowId, tabId) => {
+  if (windowId == null || tabId == null) return;
+
+  const history = (tabPickerHistoryByWindow.get(windowId) || []).slice();
+  history.push(tabId);
+  while (history.length > TAB_PICKER_HISTORY_LIMIT) {
+    history.shift();
+  }
+  tabPickerHistoryByWindow.set(windowId, history);
+  await persistTabPickerHistory();
+};
+
+const activateTabFromPicker = async (tabId, windowId) => {
+  try {
+    await runtime.tabs.update(tabId, { active: true });
+    return { ok: true };
+  } catch {
+    // The tab may have closed between listing and activation. Check whether it
+    // still exists so callers can decide to retain or skip it.
+    try {
+      const tabs = await readTabPickerWindowTabs(windowId);
+      return { ok: false, stillExists: tabs.some((tab) => tab.id === tabId) };
+    } catch {
+      return { ok: false, stillExists: true };
+    }
+  }
+};
+
+const jumpToTabFromPicker = async (payload = {}, sender) => {
+  const windowId = getTabPickerWindowId(sender);
+  if (windowId == null) return { ok: false, error: "no_sender_window" };
+
+  const targetTabId = Number(payload.tabId);
+  if (!Number.isInteger(targetTabId)) return { ok: false, error: "invalid_tab_id" };
+
+  const originTabId = sender?.tab?.id;
+  if (originTabId != null && targetTabId === originTabId) {
+    return { ok: true };
+  }
+
+  await loadTabPickerHistory();
+  const tabs = await readTabPickerWindowTabs(windowId);
+  const targetTab = tabs.find((tab) => tab.id === targetTabId);
+  if (!targetTab) return { ok: false, error: "tab_not_found" };
+
+  const activation = await activateTabFromPicker(targetTabId, windowId);
+  if (!activation.ok) return { ok: false, error: "activate_failed" };
+
+  if (originTabId != null) {
+    await recordTabPickerJump(windowId, originTabId);
+  }
+
+  return { ok: true };
+};
+
+const jumpToPreviousTabFromPicker = async (sender) => {
+  const windowId = getTabPickerWindowId(sender);
+  if (windowId == null) return { ok: false, error: "no_sender_window" };
+
+  await loadTabPickerHistory();
+  const history = (tabPickerHistoryByWindow.get(windowId) || []).slice();
+  const tabs = await readTabPickerWindowTabs(windowId);
+  const tabIds = new Set(tabs.map((tab) => tab.id));
+  const currentTabId = tabs.find((tab) => tab.active)?.id ?? sender?.tab?.id ?? null;
+
+  while (history.length) {
+    const candidate = history[history.length - 1];
+
+    if (candidate == null || candidate === currentTabId || !tabIds.has(candidate)) {
+      history.pop();
+      continue;
+    }
+
+    const activation = await activateTabFromPicker(candidate, windowId);
+    if (activation.ok) {
+      history.pop();
+      writeTabPickerHistory(windowId, history);
+      await persistTabPickerHistory();
+      return { ok: true };
+    }
+
+    if (activation.stillExists) {
+      // Retain the target at the top of history so a later attempt can retry it.
+      writeTabPickerHistory(windowId, history);
+      await persistTabPickerHistory();
+      return { ok: false, error: "activate_failed" };
+    }
+
+    // The tab closed after we listed it; skip it and try the next origin.
+    history.pop();
+  }
+
+  writeTabPickerHistory(windowId, history);
+  await persistTabPickerHistory();
+  return { ok: false, error: "no_previous_tab" };
+};
+
+if (typeof runtime.windows?.onRemoved?.addListener === "function") {
+  runtime.windows.onRemoved.addListener((windowId) => {
+    void runTabPickerHistoryTask(async () => {
+      await loadTabPickerHistory();
+      tabPickerHistoryByWindow.delete(windowId);
+      await persistTabPickerHistory();
+    });
+  });
+}
+
 runtime.runtime.onMessage.addListener((message, sender) => {
   if (!message || typeof message !== "object") return;
 
@@ -308,6 +519,18 @@ runtime.runtime.onMessage.addListener((message, sender) => {
 
   if (message.type === "navbro.tab.last") {
     void activateLastTab();
+  }
+
+  if (message.type === "navbro.tab.list") {
+    return listTabPickerTabs(sender);
+  }
+
+  if (message.type === "navbro.tab.jump") {
+    return runTabPickerHistoryTask(() => jumpToTabFromPicker(message, sender));
+  }
+
+  if (message.type === "navbro.tab.jump_previous") {
+    return runTabPickerHistoryTask(() => jumpToPreviousTabFromPicker(sender));
   }
 
   if (message.type === "navbro.link.open_tab") {

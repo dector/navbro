@@ -16,6 +16,7 @@
     qrOverlayEl: null,
     helpSession: null,
     tabWindowPickerSession: null,
+    tabPickerSession: null,
     debugEntries: [],
     debugViewIndex: 0,
     hintSession: null,
@@ -395,6 +396,7 @@
       rows: [
         ["w / u", "close tab / restore tab"],
         ["gf", "open new tab after current"],
+        ["gt / g'", "search window tabs / previous dialog jump"],
         ["' / - / +", "history back / back / forward"],
         ["ga / gr", "focus next tab playing audio / random tab"],
         ["td", "move tab to selected window"],
@@ -659,6 +661,128 @@
     } catch {
       pushDebug("runtime_send -> failed");
       return null;
+    }
+  };
+
+  const closeTabPicker = () => {
+    const session = STATE.tabPickerSession;
+    if (!session) return;
+    STATE.tabPickerSession = null;
+    session.overlay.remove();
+    if (session.previousFocus?.isConnected) session.previousFocus.focus({ preventScroll: true });
+  };
+
+  const renderTabPicker = () => {
+    const session = STATE.tabPickerSession;
+    if (!session) return;
+    const query = session.search.value.trim().toLowerCase();
+    session.filtered = session.tabs.filter((tab) => `${tab.title} ${tab.url}`.toLowerCase().includes(query));
+    session.selectedIndex = Math.max(0, Math.min(session.selectedIndex, session.filtered.length - 1));
+    session.list.replaceChildren();
+    if (!session.filtered.length) {
+      session.list.textContent = session.loading ? "Loading tabs…" : "No matching tabs.";
+      return;
+    }
+    session.filtered.forEach((tab, index) => {
+      const row = document.createElement("div");
+      row.setAttribute("role", "option");
+      row.setAttribute("aria-selected", String(index === session.selectedIndex));
+      row.textContent = `${tab.active ? "* " : ""}${tab.title || "(untitled)"} — ${tab.url || ""}`;
+      row.style.cssText = `padding:8px 12px;border-radius:6px;overflow-wrap:anywhere;background:${index === session.selectedIndex ? "#303c50" : "transparent"};`;
+      session.list.appendChild(row);
+      if (index === session.selectedIndex) row.scrollIntoView({ block: "nearest" });
+    });
+  };
+
+  const startTabPicker = async () => {
+    if (!document.body || STATE.tabPickerSession) return;
+    const overlay = document.createElement("div");
+    overlay.id = "navbro-tab-picker";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);padding:24px;box-sizing:border-box;";
+    const dialog = document.createElement("section");
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-label", "Window tabs");
+    dialog.tabIndex = -1;
+    dialog.style.cssText = "box-sizing:border-box;width:960px;max-width:100%;max-height:90vh;padding:24px;border-radius:16px;background:#191d26;color:#c6d6ec;font:16px/1.6 ui-monospace,monospace;box-shadow:0 16px 64px #0006;outline:none;text-align:left;color-scheme:dark;";
+    const title = document.createElement("h2");
+    title.textContent = "Window tabs";
+    title.style.cssText = "margin:0;font:inherit;font-size:24px;";
+    const caption = document.createElement("p");
+    caption.textContent = "j/k or ↑/↓ select · / search title or URL · Enter jump · Esc close";
+    caption.style.cssText = "margin:8px 0 16px;color:#94a3b8;";
+    const search = document.createElement("input");
+    search.type = "search";
+    search.hidden = true;
+    search.placeholder = "Search tabs…";
+    search.setAttribute("aria-label", "Search tabs");
+    search.style.cssText = "box-sizing:border-box;width:100%;padding:12px;margin-bottom:12px;border:0;border-radius:8px;background:#252e3d;color:#c6d6ec;font:inherit;";
+    const list = document.createElement("div");
+    list.setAttribute("role", "listbox");
+    list.setAttribute("aria-label", "Tabs");
+    list.style.cssText = "max-height:55vh;overflow:auto;";
+    dialog.append(title, caption, search, list);
+    overlay.appendChild(dialog);
+    const session = { overlay, dialog, search, list, tabs: [], filtered: [], selectedIndex: 0, loading: true, jumping: false, previousFocus: document.activeElement };
+    STATE.tabPickerSession = session;
+    search.addEventListener("input", () => {
+      session.selectedIndex = 0;
+      renderTabPicker();
+    });
+    document.body.appendChild(overlay);
+    renderTabPicker();
+    dialog.focus({ preventScroll: true });
+    const response = await sendRuntimeMessageWithResponse({ type: "navbro.tab.list" });
+    if (STATE.tabPickerSession !== session) return;
+    session.loading = false;
+    if (!Array.isArray(response?.tabs)) {
+      closeTabPicker();
+      showToast("Failed to list tabs");
+      return;
+    }
+    session.tabs = response.tabs;
+    session.selectedIndex = Math.max(0, session.tabs.findIndex((tab) => tab.active));
+    renderTabPicker();
+  };
+
+  const handleTabPickerInput = (event) => {
+    const session = STATE.tabPickerSession;
+    const searching = document.activeElement === session.search;
+    const modified = event.ctrlKey || event.altKey || event.metaKey;
+    event.stopImmediatePropagation();
+    if (event.isComposing) {
+      if (!searching) event.preventDefault();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeTabPicker();
+    } else if (event.key === "/" && !searching && !modified) {
+      event.preventDefault();
+      session.search.hidden = false;
+      session.search.focus({ preventScroll: true });
+    } else if (!modified && (event.key === "ArrowDown" || event.key === "ArrowUp" || (!searching && (event.key === "j" || event.key === "k")))) {
+      event.preventDefault();
+      const direction = event.key === "j" || event.key === "ArrowDown" ? 1 : -1;
+      const count = session.filtered.length;
+      if (count) session.selectedIndex = (session.selectedIndex + direction + count) % count;
+      renderTabPicker();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const tab = session.filtered[session.selectedIndex];
+      if (!tab || session.jumping || event.isComposing) return;
+      session.jumping = true;
+      void sendRuntimeMessageWithResponse({ type: "navbro.tab.jump", tabId: tab.id }).then((result) => {
+        if (STATE.tabPickerSession !== session) return;
+        session.jumping = false;
+        if (result?.ok) closeTabPicker();
+        else showToast("Failed to jump to tab; it may have closed");
+      });
+    } else if (event.key === "Tab") {
+      event.preventDefault();
+      (session.search.hidden ? session.dialog : session.search).focus({ preventScroll: true });
+    } else if (!searching || modified) {
+      event.preventDefault();
     }
   };
 
@@ -1411,7 +1535,7 @@
   };
 
   const syncModeWithFocusedInput = () => {
-    if (STATE.helpSession || STATE.mode === "pass" || STATE.mode === "hint") {
+    if (STATE.helpSession || STATE.tabPickerSession || STATE.mode === "pass" || STATE.mode === "hint") {
       return;
     }
 
@@ -1846,6 +1970,22 @@
       if (isModifierKey(key)) {
         pushDebug(`${key.toLowerCase()}(down)`);
         return false;
+      }
+
+      if (key === "t") {
+        resetPendingSequence();
+        void startTabPicker();
+        return true;
+      }
+
+      if (key === "'") {
+        resetPendingSequence();
+        void sendRuntimeMessageWithResponse({ type: "navbro.tab.jump_previous" }).then((result) => {
+          if (!result?.ok) showToast(result?.error === "no_previous_tab"
+            ? "No previous tab jump available"
+            : "Failed to jump to previous tab");
+        });
+        return true;
       }
 
       if (key === "g") {
@@ -2303,6 +2443,11 @@
       return;
     }
 
+    if (STATE.tabPickerSession) {
+      handleTabPickerInput(event);
+      return;
+    }
+
     if (matchesCombo(event, KEY_CONFIG.modeToggle)) {
       event.preventDefault();
       event.stopPropagation();
@@ -2396,7 +2541,7 @@
   };
 
   const onKeyUp = (event) => {
-    if (STATE.helpSession) {
+    if (STATE.helpSession || STATE.tabPickerSession) {
       event.stopImmediatePropagation();
       return;
     }
