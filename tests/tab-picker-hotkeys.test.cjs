@@ -4,12 +4,14 @@ const test = require("node:test");
 const vm = require("node:vm");
 const source = fs.readFileSync(require("node:path").join(__dirname, "../content.js"), "utf8");
 
-test("gt opens the picker and g' requests previous dialog jump, resetting the sequence", async () => {
+test("tt opens the picker, gt no longer does, and g' requests previous dialog jump", async () => {
   const start = source.indexOf('    if (STATE.pendingSequence === "g")', source.indexOf("  const handleNavInput ="));
   const end = source.indexOf('    if (STATE.pendingSequence === "?")', start);
+  const tabStart = source.indexOf('    if (STATE.pendingSequence === "t")', end);
+  const tabEnd = source.indexOf('    if (STATE.pendingSequence === "z")', tabStart);
   const context = vm.createContext({});
   vm.runInContext(`
-    const STATE = { pendingSequence: "g" };
+    const STATE = { pendingSequence: "t" };
     let opens = 0;
     const messages = [];
     const isModifierKey = key => key === "Shift";
@@ -18,10 +20,14 @@ test("gt opens the picker and g' requests previous dialog jump, resetting the se
     const startTabPicker = async () => { opens++; };
     const sendRuntimeMessageWithResponse = async message => { messages.push(message); return { ok: true }; };
     const showToast = () => {};
-    const handle = key => { ${source.slice(start, end)} };
+    const handle = key => { ${source.slice(start, end)} ${source.slice(tabStart, tabEnd)} };
     globalThis.api = { STATE, handle, messages, get opens() { return opens; } };
   `, context);
   const api = context.api;
+  assert.equal(api.handle("t"), true);
+  assert.equal(api.opens, 1);
+  assert.equal(api.STATE.pendingSequence, null);
+  api.STATE.pendingSequence = "g";
   assert.equal(api.handle("t"), true);
   assert.equal(api.opens, 1);
   assert.equal(api.STATE.pendingSequence, null);

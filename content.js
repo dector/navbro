@@ -396,7 +396,7 @@
       rows: [
         ["w / u", "close tab / restore tab"],
         ["gf", "open new tab after current"],
-        ["gt / g'", "search window tabs / previous dialog jump"],
+        ["tt / g'", "search window tabs / previous dialog jump"],
         ["' / - / +", "history back / back / forward"],
         ["ga / gr", "focus next tab playing audio / random tab"],
         ["td", "move tab to selected window"],
@@ -2051,12 +2051,6 @@
         return false;
       }
 
-      if (key === "t") {
-        resetPendingSequence();
-        void startTabPicker();
-        return true;
-      }
-
       if (key === "'") {
         resetPendingSequence();
         void sendRuntimeMessageWithResponse({ type: "navbro.tab.jump_previous" }).then((result) => {
@@ -2191,6 +2185,12 @@
       if (isModifierKey(key)) {
         pushDebug(`${key.toLowerCase()}(down)`);
         return false;
+      }
+
+      if (key === "t") {
+        resetPendingSequence();
+        void startTabPicker();
+        return true;
       }
 
       if (key === "d") {
