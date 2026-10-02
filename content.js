@@ -441,19 +441,19 @@
     dialog.setAttribute("aria-modal", "true");
     dialog.setAttribute("aria-label", "Navbro hotkeys help");
     dialog.tabIndex = -1;
-    dialog.style.cssText = "box-sizing:border-box;width:960px;max-width:100%;max-height:90vh;overflow:auto;padding:28px;border:0;border-radius:16px;background:rgba(25,29,38,.96);color:#b9c2d0;font:16px/1.6 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;box-shadow:0 16px 64px #0006;outline:none;text-align:left;color-scheme:dark;";
+    dialog.style.cssText = "box-sizing:border-box;width:960px;max-width:100%;max-height:90vh;overflow:auto;padding:24px;border:1px solid #444;border-radius:0;background:#202020;color:#e0e0e0;font:16px/1.6 system-ui,sans-serif;box-shadow:0 16px 64px #0006;outline:none;text-align:left;color-scheme:dark;";
     const title = document.createElement("h2");
     title.textContent = "Hotkeys (nav mode)";
-    title.style.cssText = "margin:0;font-family:inherit;font-weight:bold;font-size:24px;line-height:1.4;color:#c6d6ec;";
+    title.style.cssText = "margin:0;font:inherit;font-size:24px;";
     const instructions = document.createElement("p");
     instructions.textContent = "j/k to scroll · / to search help · Esc to close";
-    instructions.style.cssText = "margin:8px 0 20px;color:#94a3b8;";
+    instructions.style.cssText = "margin:8px 0 16px;color:#999;";
     const search = document.createElement("input");
     search.type = "search";
     search.placeholder = "Search hotkeys…";
     search.setAttribute("aria-label", "Search hotkeys help");
     search.hidden = true;
-    search.style.cssText = "box-sizing:border-box;width:100%;padding:12px 14px;margin-bottom:16px;border:0;border-radius:8px;background:#252e3d;color:#c6d6ec;font:inherit;outline:none;box-shadow:inset 0 0 0 1px #85b5df55;";
+    search.style.cssText = "box-sizing:border-box;width:100%;padding:12px;margin-bottom:12px;border:1px solid #444;border-radius:0;background:#2b2b2b;color:#e0e0e0;font:inherit;";
     const results = document.createElement("div");
     const render = () => {
       const query = search.value.trim().toLowerCase();
@@ -462,8 +462,8 @@
           `${group.title} ${keys} ${action}`.toLowerCase().includes(query),
         );
         if (!rows.length) return "";
-        return `<section style="margin:0;padding:0;border:0;background:transparent"><h3 style="margin:22px 0 10px;font-family:inherit;font-size:18px;font-weight:600;line-height:1.4;color:#8bbbc4">${escapeHtml(group.title)}</h3>${rows.map(([keys, action]) =>
-          `<div style="display:grid;grid-template-columns:minmax(140px,40%) 1fr;gap:16px;align-items:baseline;padding:5px 0"><span><kbd style="display:inline-block;padding:3px 9px;border:0;border-radius:6px;background:#303c50;color:#b9cfee;font:inherit;font-size:14px;box-shadow:0 2px 0 #10172266;white-space:normal">${escapeHtml(keys)}</kbd></span><span>${escapeHtml(action)}</span></div>`,
+        return `<section style="margin:0;padding:0;border:0;background:transparent"><h3 style="margin:16px 0 8px;font-family:inherit;font-size:18px;font-weight:600;line-height:1.4;color:#e0e0e0">${escapeHtml(group.title)}</h3>${rows.map(([keys, action]) =>
+          `<div style="display:grid;grid-template-columns:minmax(140px,40%) 1fr;gap:16px;align-items:baseline;padding:5px 0"><span><kbd style="display:inline-block;padding:3px 9px;border:0;border-radius:0;background:#353535;color:#e0e0e0;font:14px/1.5 ui-monospace,monospace;white-space:normal">${escapeHtml(keys)}</kbd></span><span>${escapeHtml(action)}</span></div>`,
         ).join("")}</section>`;
       }).join("");
       results.innerHTML = groups || "<p>No matching hotkeys.</p>";

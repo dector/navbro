@@ -10,7 +10,8 @@ function setup() {
   function element() {
     return {
       style: {}, children: [], value: "", hidden: false, isConnected: true,
-      setAttribute() {},
+      attributes: {},
+      setAttribute(name, value) { this.attributes[name] = value; },
       append(...children) { this.children.push(...children); },
       appendChild(child) { this.append(child); },
       addEventListener(name, callback) { this[name] = callback; },
@@ -45,6 +46,10 @@ test("help is a persistent centered dialog closed by Escape, restoring focus", (
   const { overlay, dialog } = api.STATE.helpSession;
   assert.match(overlay.style.cssText, /align-items:center;justify-content:center/);
   assert.equal(api.document.activeElement, dialog);
+  assert.equal(dialog.attributes.role, "dialog");
+  assert.equal(dialog.attributes["aria-modal"], "true");
+  assert.equal(dialog.attributes["aria-label"], "Navbro hotkeys help");
+  assert.equal(dialog.tabIndex, -1);
   api.showHotkeysHelp();
   assert.equal(api.document.body.children.length, 1);
   assert.equal(key(api, "j").prevented, true);
@@ -56,6 +61,26 @@ test("help is a persistent centered dialog closed by Escape, restoring focus", (
   assert.equal(api.STATE.helpSession, null);
   assert.equal(overlay.isConnected, false);
   assert.equal(api.document.activeElement, api.previousFocus);
+});
+
+test("help matches the tab selector's square graphite surfaces and typography", () => {
+  const api = setup();
+  api.showHotkeysHelp();
+  const { overlay, dialog, search } = api.STATE.helpSession;
+  const [title, instructions, , results] = dialog.children;
+  const pickerSource = source.slice(source.indexOf("  const startTabPicker ="));
+  const pickerStyle = (name) => pickerSource.match(new RegExp(`${name}\\.style\\.cssText = "([^"]+)"`))[1];
+  assert.equal(overlay.style.cssText, pickerStyle("overlay"));
+  assert.equal(dialog.style.cssText.replace("overflow:auto;", ""), pickerStyle("dialog"));
+  assert.match(dialog.style.cssText, /overflow:auto/);
+  assert.equal(title.style.cssText, pickerStyle("title"));
+  assert.equal(instructions.style.cssText, pickerStyle("caption"));
+  assert.equal(search.style.cssText, pickerStyle("search"));
+  assert.equal(search.attributes["aria-label"], "Search hotkeys help");
+  assert.match(results.innerHTML, /color:#e0e0e0/);
+  assert.match(results.innerHTML, /border-radius:0;background:#353535/);
+  assert.match(results.innerHTML, /font:14px\/1\.5 ui-monospace,monospace/);
+  assert.doesNotMatch(results.innerHTML, /box-shadow/);
 });
 
 test("slash searches help only and typing bypasses navigation", () => {
