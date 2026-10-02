@@ -45,6 +45,8 @@ Legend:
 - [x] First tab (`Alt-0`, `g_`)
 - [x] Last tab (`Alt-$`, `g$`)
 - [x] Search tabs in the current window (`gt`): `/` filters titles and URLs; `j/k` or arrows select; `Shift-j/k` move five items; `gg`/`G` select first/last; Enter jumps; Esc closes. Selection stays centered when possible, with off-screen tab counts above/below.
+  - `r` previews a random filtered item without switching tabs; Enter activates it. `u` undoes up to 25 random moves within this dialog.
+  - Random previews exclude the last 25 choices, including undone choices. If all candidates are recent, `r` does nothing. While typing search, `r`/`u` remain text.
 - [x] Previous dialog jump (`g'`): walks back through the last 10 jump origins per window, skipping closed/moved tabs (session-only history)
 - [ ] Previous tab (`H`)
 - [ ] Next tab (`L`)

@@ -711,6 +711,39 @@
     updateTabPickerCounts();
   };
 
+  const previewRandomTab = () => {
+    const session = STATE.tabPickerSession;
+    const current = session.filtered[session.selectedIndex];
+    if (!current) return;
+    // Seed the initial selection once; undo never removes recent choices.
+    if (!session.randomRecent.length) session.randomRecent.push(current.id);
+    const candidates = session.filtered.filter((tab) => tab.id !== current.id && !session.randomRecent.includes(tab.id));
+    if (!candidates.length) {
+      showToast("No new tabs to preview");
+      return;
+    }
+    const target = candidates[Math.floor(Math.random() * candidates.length)];
+    session.randomUndo.push(current.id);
+    session.randomUndo = session.randomUndo.slice(-25);
+    session.randomRecent.push(target.id);
+    session.randomRecent = session.randomRecent.slice(-25);
+    session.selectedIndex = session.filtered.findIndex((tab) => tab.id === target.id);
+    renderTabPicker();
+  };
+
+  const undoRandomTabPreview = () => {
+    const session = STATE.tabPickerSession;
+    while (session.randomUndo.length) {
+      const tabId = session.randomUndo.pop();
+      const index = session.filtered.findIndex((tab) => tab.id === tabId);
+      if (index < 0) continue;
+      session.selectedIndex = index;
+      renderTabPicker();
+      return;
+    }
+    showToast("No random tab move to undo");
+  };
+
   const startTabPicker = async () => {
     if (!document.body || STATE.tabPickerSession) return;
     const overlay = document.createElement("div");
@@ -726,7 +759,7 @@
     title.textContent = "Window tabs";
     title.style.cssText = "margin:0;font:inherit;font-size:24px;";
     const caption = document.createElement("p");
-    caption.textContent = "j/k or ↑/↓ select · J/K move 5 · gg/G first/last · / search title or URL · Enter jump · Esc close";
+    caption.textContent = "j/k or ↑/↓ select · J/K move 5 · gg/G first/last · r random · u undo random · / search · Enter jump · Esc close";
     caption.style.cssText = "margin:8px 0 16px;color:#94a3b8;";
     const search = document.createElement("input");
     search.type = "search";
@@ -745,7 +778,7 @@
     above.style.cssText = below.style.cssText = "text-align:center;color:#94a3b8;font-size:13px;padding:4px;";
     dialog.append(title, caption, search, above, list, below);
     overlay.appendChild(dialog);
-    const session = { overlay, dialog, search, list, above, below, rows: [], tabs: [], filtered: [], selectedIndex: 0, pendingGAt: null, loading: true, jumping: false, previousFocus: document.activeElement };
+    const session = { overlay, dialog, search, list, above, below, rows: [], tabs: [], filtered: [], selectedIndex: 0, pendingGAt: null, randomRecent: [], randomUndo: [], loading: true, jumping: false, previousFocus: document.activeElement };
     STATE.tabPickerSession = session;
     list.addEventListener("scroll", updateTabPickerCounts);
     search.addEventListener("input", () => {
@@ -793,6 +826,12 @@
       event.preventDefault();
       session.selectedIndex = Math.max(0, session.filtered.length - 1);
       renderTabPicker();
+    } else if (!searching && !modified && event.key === "r") {
+      event.preventDefault();
+      previewRandomTab();
+    } else if (!searching && !modified && event.key === "u") {
+      event.preventDefault();
+      undoRandomTabPreview();
     } else if (event.key === "Escape") {
       event.preventDefault();
       closeTabPicker();

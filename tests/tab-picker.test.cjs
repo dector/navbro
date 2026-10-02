@@ -36,7 +36,9 @@ function setup(send = async (message) => message.type === "navbro.tab.list" ? { 
   previousFocus.focus();
   const messages = [];
   const toasts = [];
-  const context = vm.createContext({ document, send: (message) => { messages.push(message); return send(message); }, toasts });
+  const randomMath = Object.create(Math);
+  randomMath.random = () => 0;
+  const context = vm.createContext({ document, Math: randomMath, send: (message) => { messages.push(message); return send(message); }, toasts });
   const helpers = source.slice(source.indexOf("  const closeTabPicker ="), source.indexOf("  const closeTabWindowPicker ="));
   vm.runInContext(`const STATE = { tabPickerSession: null }; const KEY_CONFIG = { keySequence: { timeoutMs: 5000 } }; const isModifierKey = key => ["Shift", "Control", "Alt", "Meta"].includes(key); const sendRuntimeMessageWithResponse = send; const showToast = message => toasts.push(message); ${helpers}; globalThis.api = { STATE, startTabPicker, closeTabPicker, handleTabPickerInput };`, context);
   return { ...context.api, document, previousFocus, messages, toasts };
@@ -218,6 +220,123 @@ test("five-item moves handle short and empty lists", async () => {
   session.dialog.focus();
   key(api, "K", { shiftKey: true });
   assert.equal(session.selectedIndex, 0);
+});
+
+test("r previews without switching tabs, u undoes, and Enter selects the preview", async () => {
+  const api = setup();
+  await api.startTabPicker();
+  const session = api.STATE.tabPickerSession;
+  assert.equal(key(api, "r").prevented, true);
+  assert.equal(session.selectedIndex, 1);
+  key(api, "r");
+  assert.equal(session.selectedIndex, 2);
+  assert.equal(api.messages.length, 1);
+  assert.equal(key(api, "u").prevented, true);
+  assert.equal(session.selectedIndex, 1);
+  key(api, "Enter");
+  await Promise.resolve();
+  assert.equal(api.messages[1].type, "navbro.tab.jump");
+  assert.equal(api.messages[1].tabId, 2);
+});
+
+test("undo restores random origins without making visited choices eligible again", async () => {
+  const api = manyTabs(4);
+  await api.startTabPicker();
+  const session = api.STATE.tabPickerSession;
+  key(api, "r");
+  assert.equal(session.selectedIndex, 0);
+  key(api, "r");
+  assert.equal(session.selectedIndex, 1);
+  key(api, "r");
+  assert.equal(session.selectedIndex, 2);
+  key(api, "u");
+  assert.equal(session.selectedIndex, 1);
+  key(api, "u");
+  assert.equal(session.selectedIndex, 0);
+  key(api, "u");
+  assert.equal(session.selectedIndex, 4);
+  key(api, "u");
+  assert.equal(session.selectedIndex, 4);
+  assert.equal(api.toasts.at(-1), "No random tab move to undo");
+  key(api, "r");
+  assert.equal(session.selectedIndex, 3);
+});
+
+test("random previews retain only 25 recent choices and 25 undo steps", async () => {
+  const api = setup(async () => ({ tabs: Array.from({ length: 30 }, (_, index) => ({
+    id: index + 1, title: `Tab ${index}`, active: index === 0,
+  })) }));
+  await api.startTabPicker();
+  const session = api.STATE.tabPickerSession;
+  const origins = [];
+  for (let i = 0; i < 60; i++) {
+    const recent = [...session.randomRecent];
+    const origin = session.selectedIndex;
+    origins.push(origin);
+    key(api, "r");
+    const targetId = session.filtered[session.selectedIndex].id;
+    assert.notEqual(session.selectedIndex, origin);
+    assert.equal(recent.includes(targetId), false);
+    assert.ok(session.randomRecent.length <= 25);
+    assert.ok(session.randomUndo.length <= 25);
+  }
+  assert.equal(session.randomUndo.length, 25);
+  for (let i = 0; i < 25; i++) {
+    key(api, "u");
+    assert.equal(session.selectedIndex, origins[59 - i]);
+  }
+  assert.equal(session.randomUndo.length, 0);
+});
+
+test("random previews do not repeat when a small list is exhausted", async () => {
+  const api = setup();
+  await api.startTabPicker();
+  const session = api.STATE.tabPickerSession;
+  key(api, "r");
+  key(api, "r");
+  key(api, "r");
+  assert.equal(session.selectedIndex, 2);
+  assert.equal(session.randomUndo.length, 2);
+  assert.equal(api.toasts.at(-1), "No new tabs to preview");
+  key(api, "u");
+  key(api, "r");
+  assert.equal(session.selectedIndex, 1);
+});
+
+test("r/u are normal search text, respect modifiers, and handle no matches", async () => {
+  const api = manyTabs(4);
+  await api.startTabPicker();
+  const session = api.STATE.tabPickerSession;
+  key(api, "r", { ctrlKey: true });
+  key(api, "u", { altKey: true });
+  assert.equal(session.selectedIndex, 4);
+  key(api, "/");
+  assert.equal(key(api, "r").prevented, false);
+  assert.equal(key(api, "u").prevented, false);
+  assert.equal(session.randomUndo.length, 0);
+  session.search.value = "missing";
+  session.search.input();
+  session.dialog.focus();
+  key(api, "r");
+  key(api, "u");
+  assert.equal(session.selectedIndex, 0);
+  assert.equal(api.messages.length, 1);
+});
+
+test("random selection uses filtered candidates and undo skips filtered-out origins", async () => {
+  const api = manyTabs(4);
+  await api.startTabPicker();
+  const session = api.STATE.tabPickerSession;
+  key(api, "r"); // Tab 5 -> Tab 1.
+  key(api, "/");
+  session.search.value = "Tab 1";
+  session.search.input();
+  session.dialog.focus();
+  key(api, "u"); // Tab 5 is not in the filtered list.
+  assert.equal(session.filtered[session.selectedIndex].id, 1);
+  assert.equal(session.randomUndo.length, 0);
+  key(api, "r");
+  assert.equal(session.filtered[session.selectedIndex].id, 1);
 });
 
 test("a failed tab listing closes picker and restores focus", async () => {
