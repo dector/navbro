@@ -128,7 +128,7 @@ One-shot pass-through:
 - [x] Zoom out (strong, `zD`)
 - [x] Zoom min preset (`zm`)
 - [x] Zoom max preset (`zM`)
-- [x] YouTube playback speed step up/down (`zr` / `zR`)
+- [x] YouTube playback speed step up/down (`z]` / `z[`, also `zr` / `zR` / `ZR`; YouTube only, 0.25× steps from 0.5× to 2×)
 - [x] YouTube quality toggle 480p↔1080p (`zq`) + jump to 1440p (`zQ`)
 - [x] YouTube focus video mode (`zf`)
 

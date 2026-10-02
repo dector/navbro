@@ -385,7 +385,7 @@
         ["yy / yY / yq", "copy URL / copy title+URL / QR"],
         ["zz / zi / zd", "zoom reset / in / out"],
         ["zI / zD / zm / zM", "zoom in++ / out++ / min / max"],
-        ["zr / zR", "YouTube speed +0.25 / -0.25"],
+        ["z] / z[ (also zr / zR / ZR)", "YouTube speed +0.25 / -0.25"],
         ["zq / zQ", "YouTube quality toggle 480p↔1080p / jump 1440p"],
         ["zf", "YouTube focus video"],
       ],
@@ -961,16 +961,16 @@
     return true;
   };
 
-  const adjustYouTubePlaybackRate = (direction) => {
+  const adjustYouTubePlaybackRate = (direction, keyLabel = `z${direction > 0 ? "r" : "R"}`) => {
     if (!isYouTubePage()) {
-      pushDebug(`z${direction > 0 ? "r" : "R"} -> skipped_not_youtube`);
+      pushDebug(`${keyLabel} -> skipped_not_youtube`);
       return false;
     }
 
     const video = getActiveYouTubeVideo();
     if (!video) {
       showToast("YouTube video not found", 1200);
-      pushDebug(`z${direction > 0 ? "r" : "R"} -> no_video`);
+      pushDebug(`${keyLabel} -> no_video`);
       return true;
     }
 
@@ -990,7 +990,7 @@
 
     video.playbackRate = nextRate;
     showToast(`Speed ${nextRate}x`, 900);
-    pushDebug(`z${direction > 0 ? "r" : "R"} -> yt_rate_${nextRate}x`);
+    pushDebug(`${keyLabel} -> yt_rate_${nextRate}x`);
     return true;
   };
 
@@ -2048,6 +2048,12 @@
         return true;
       }
 
+      if (key === "]" || key === "[") {
+        const handled = adjustYouTubePlaybackRate(key === "]" ? 1 : -1, `z${key}`);
+        resetPendingSequence();
+        return handled;
+      }
+
       if (key === "r") {
         adjustYouTubePlaybackRate(1);
         resetPendingSequence();
@@ -2183,7 +2189,7 @@
       return true;
     }
 
-    if (key === "z") {
+    if (key === "z" || key === "Z") {
       STATE.pendingSequence = "z";
       renderModeBadge();
       schedulePendingTimeout();
