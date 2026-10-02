@@ -672,6 +672,17 @@
     if (session.previousFocus?.isConnected) session.previousFocus.focus({ preventScroll: true });
   };
 
+  const updateTabPickerCounts = () => {
+    const session = STATE.tabPickerSession;
+    if (!session) return;
+    const top = session.list.scrollTop;
+    const bottom = top + session.list.clientHeight;
+    const above = session.rows.filter((row) => row.offsetTop + row.offsetHeight <= top).length;
+    const below = session.rows.filter((row) => row.offsetTop >= bottom).length;
+    session.above.textContent = `↑ ${above}`;
+    session.below.textContent = `↓ ${below}`;
+  };
+
   const renderTabPicker = () => {
     const session = STATE.tabPickerSession;
     if (!session) return;
@@ -679,8 +690,10 @@
     session.filtered = session.tabs.filter((tab) => `${tab.title} ${tab.url}`.toLowerCase().includes(query));
     session.selectedIndex = Math.max(0, Math.min(session.selectedIndex, session.filtered.length - 1));
     session.list.replaceChildren();
+    session.rows = [];
     if (!session.filtered.length) {
       session.list.textContent = session.loading ? "Loading tabs…" : "No matching tabs.";
+      updateTabPickerCounts();
       return;
     }
     session.filtered.forEach((tab, index) => {
@@ -690,8 +703,12 @@
       row.textContent = `${tab.active ? "* " : ""}${tab.title || "(untitled)"} — ${tab.url || ""}`;
       row.style.cssText = `padding:8px 12px;border-radius:6px;overflow-wrap:anywhere;background:${index === session.selectedIndex ? "#303c50" : "transparent"};`;
       session.list.appendChild(row);
-      if (index === session.selectedIndex) row.scrollIntoView({ block: "nearest" });
+      session.rows.push(row);
     });
+    const selected = session.rows[session.selectedIndex];
+    const centeredTop = selected.offsetTop + selected.offsetHeight / 2 - session.list.clientHeight / 2;
+    session.list.scrollTop = Math.max(0, Math.min(centeredTop, session.list.scrollHeight - session.list.clientHeight));
+    updateTabPickerCounts();
   };
 
   const startTabPicker = async () => {
@@ -709,7 +726,7 @@
     title.textContent = "Window tabs";
     title.style.cssText = "margin:0;font:inherit;font-size:24px;";
     const caption = document.createElement("p");
-    caption.textContent = "j/k or ↑/↓ select · / search title or URL · Enter jump · Esc close";
+    caption.textContent = "j/k or ↑/↓ select · J/K move 5 · gg/G first/last · / search title or URL · Enter jump · Esc close";
     caption.style.cssText = "margin:8px 0 16px;color:#94a3b8;";
     const search = document.createElement("input");
     search.type = "search";
@@ -720,12 +737,19 @@
     const list = document.createElement("div");
     list.setAttribute("role", "listbox");
     list.setAttribute("aria-label", "Tabs");
-    list.style.cssText = "max-height:55vh;overflow:auto;";
-    dialog.append(title, caption, search, list);
+    list.style.cssText = "position:relative;max-height:55vh;overflow:auto;scroll-behavior:auto;";
+    const above = document.createElement("div");
+    const below = document.createElement("div");
+    above.setAttribute("aria-label", "Tabs above the visible list");
+    below.setAttribute("aria-label", "Tabs below the visible list");
+    above.style.cssText = below.style.cssText = "text-align:center;color:#94a3b8;font-size:13px;padding:4px;";
+    dialog.append(title, caption, search, above, list, below);
     overlay.appendChild(dialog);
-    const session = { overlay, dialog, search, list, tabs: [], filtered: [], selectedIndex: 0, loading: true, jumping: false, previousFocus: document.activeElement };
+    const session = { overlay, dialog, search, list, above, below, rows: [], tabs: [], filtered: [], selectedIndex: 0, pendingGAt: null, loading: true, jumping: false, previousFocus: document.activeElement };
     STATE.tabPickerSession = session;
+    list.addEventListener("scroll", updateTabPickerCounts);
     search.addEventListener("input", () => {
+      session.pendingGAt = null;
       session.selectedIndex = 0;
       renderTabPicker();
     });
@@ -754,18 +778,34 @@
       if (!searching) event.preventDefault();
       return;
     }
-    if (event.key === "Escape") {
+    const pendingGAt = session.pendingGAt;
+    if (!isModifierKey(event.key)) session.pendingGAt = null;
+    if (!searching && !modified && event.key === "g") {
+      event.preventDefault();
+      if (event.repeat) return;
+      if (pendingGAt !== null && Date.now() - pendingGAt <= (KEY_CONFIG.keySequence?.timeoutMs || 5000)) {
+        session.selectedIndex = 0;
+        renderTabPicker();
+      } else {
+        session.pendingGAt = Date.now();
+      }
+    } else if (!searching && !modified && event.key === "G") {
+      event.preventDefault();
+      session.selectedIndex = Math.max(0, session.filtered.length - 1);
+      renderTabPicker();
+    } else if (event.key === "Escape") {
       event.preventDefault();
       closeTabPicker();
     } else if (event.key === "/" && !searching && !modified) {
       event.preventDefault();
       session.search.hidden = false;
       session.search.focus({ preventScroll: true });
-    } else if (!modified && (event.key === "ArrowDown" || event.key === "ArrowUp" || (!searching && (event.key === "j" || event.key === "k")))) {
+    } else if (!modified && (event.key === "ArrowDown" || event.key === "ArrowUp" || (!searching && ["j", "k", "J", "K"].includes(event.key)))) {
       event.preventDefault();
-      const direction = event.key === "j" || event.key === "ArrowDown" ? 1 : -1;
+      const direction = event.key.toLowerCase() === "j" || event.key === "ArrowDown" ? 1 : -1;
+      const step = !searching && (event.key === "J" || event.key === "K" || (event.shiftKey && ["j", "k"].includes(event.key))) ? 5 : 1;
       const count = session.filtered.length;
-      if (count) session.selectedIndex = (session.selectedIndex + direction + count) % count;
+      if (count) session.selectedIndex = ((session.selectedIndex + direction * step) % count + count) % count;
       renderTabPicker();
     } else if (event.key === "Enter") {
       event.preventDefault();
