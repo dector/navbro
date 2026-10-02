@@ -90,6 +90,12 @@ Pass mode defaults (see `key-config.js`):
 - `passMode.defaultHosts: ["mail.google.com"]` — start in `pass` mode on matching hosts
 - Supports exact hosts and wildcard subdomain rules like `"*.example.com"`
 
+Website opt-out:
+- Add `<meta name="navbro-disable" content="true">` inside the page's `<head>` to disable navbro on that page.
+- Checked once when the content script starts (`document_idle`). Later changes require a reload.
+- When disabled, navbro adds no UI or keyboard listeners; even `Ctrl-Insert` is left untouched.
+- The `content` value ignores surrounding whitespace and letter case. Other values do not disable navbro.
+
 Indicator settings:
 - `indicator.passModeVibisibility: "hide-filterlist-only"` (default)
   - `"show-always"` — show pass badge always

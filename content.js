@@ -1,4 +1,10 @@
 (() => {
+  // Website opt-out: checked once at document_idle, before UI or listeners exist.
+  const siteDisablesNavbro = Array.from(
+    document.head?.querySelectorAll('meta[name="navbro-disable"]') || [],
+  ).some((meta) => meta.getAttribute("content")?.trim().toLowerCase() === "true");
+  if (siteDisablesNavbro) return;
+
   const STATE = {
     mode: "nav", // 'nav' | 'pass' | 'hint' | 'input'
     passModeSource: "none", // 'none' | 'filterlist' | 'manual'
