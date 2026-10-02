@@ -1,0 +1,13 @@
+{
+  "addons": {
+    "navbro@dector.space": {
+      "updates": [
+        {
+          "version": "0.0.18",
+          "update_link": "https://github.com/dector/navbro/releases/download/v0.0.18/navbro-0.0.18-signed.xpi",
+          "update_hash": "sha256:de85f156c1e12b4c46c65c6264e3beaa8196ef76c878518808fef014a0f8943c"
+        }
+      ]
+    }
+  }
+}
