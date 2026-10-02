@@ -74,6 +74,21 @@ test("picker lists current window tabs, selects and jumps", async () => {
   assert.equal(api.document.activeElement, api.previousFocus);
 });
 
+test("picker uses square graphite surfaces and separate title and monospace URL lines", async () => {
+  const api = setup();
+  await api.startTabPicker();
+  const session = api.STATE.tabPickerSession;
+  assert.match(session.dialog.style.cssText, /border-radius:0;background:#202020/);
+  assert.match(session.search.style.cssText, /border-radius:0;background:#2b2b2b/);
+  const row = session.rows[0];
+  assert.match(row.style.cssText, /border-radius:0/);
+  assert.match(row.style.cssText, /background:#353535/);
+  assert.equal(row.children[0].textContent, "* Current");
+  assert.equal(row.children[1].textContent, "https://one.test");
+  assert.match(row.children[1].style.cssText, /ui-monospace,monospace;color:#999/);
+  assert.equal(session.rows[1].children[0].textContent, "Other");
+});
+
 test("slash searches title and URL; typing is isolated, arrows and Enter still work", async () => {
   const api = setup();
   await api.startTabPicker();
@@ -99,6 +114,18 @@ test("slash searches title and URL; typing is isolated, arrows and Enter still w
   assert.equal(api.messages.length, 1);
   key(api, "Tab");
   assert.equal(api.document.activeElement, session.search);
+  key(api, "Escape");
+  assert.equal(api.STATE.tabPickerSession, session);
+  assert.equal(session.overlay.isConnected, true);
+  assert.equal(session.search.hidden, true);
+  assert.equal(session.search.value, "missing");
+  assert.equal(session.filtered.length, 3);
+  assert.equal(api.document.activeElement, session.dialog);
+  key(api, "/");
+  assert.equal(session.search.value, "missing");
+  assert.equal(session.filtered.length, 0);
+  assert.equal(api.document.activeElement, session.search);
+  key(api, "Escape");
   key(api, "Escape");
   assert.equal(session.overlay.isConnected, false);
   assert.equal(api.document.activeElement, api.previousFocus);

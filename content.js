@@ -686,7 +686,7 @@
   const renderTabPicker = () => {
     const session = STATE.tabPickerSession;
     if (!session) return;
-    const query = session.search.value.trim().toLowerCase();
+    const query = session.search.hidden ? "" : session.search.value.trim().toLowerCase();
     session.filtered = session.tabs.filter((tab) => `${tab.title} ${tab.url}`.toLowerCase().includes(query));
     session.selectedIndex = Math.max(0, Math.min(session.selectedIndex, session.filtered.length - 1));
     session.list.replaceChildren();
@@ -700,8 +700,14 @@
       const row = document.createElement("div");
       row.setAttribute("role", "option");
       row.setAttribute("aria-selected", String(index === session.selectedIndex));
-      row.textContent = `${tab.active ? "* " : ""}${tab.title || "(untitled)"} — ${tab.url || ""}`;
-      row.style.cssText = `padding:8px 12px;border-radius:6px;overflow-wrap:anywhere;background:${index === session.selectedIndex ? "#303c50" : "transparent"};`;
+      row.style.cssText = `padding:8px 12px;border-radius:0;overflow-wrap:anywhere;background:${index === session.selectedIndex ? "#353535" : "transparent"};`;
+      const pageTitle = document.createElement("div");
+      pageTitle.textContent = `${tab.active ? "* " : ""}${tab.title || "(untitled)"}`;
+      pageTitle.style.cssText = "font:16px/1.5 system-ui,sans-serif;color:#e0e0e0;";
+      const url = document.createElement("div");
+      url.textContent = tab.url || "";
+      url.style.cssText = "font:13px/1.5 ui-monospace,monospace;color:#999;";
+      row.append(pageTitle, url);
       session.list.appendChild(row);
       session.rows.push(row);
     });
@@ -754,19 +760,19 @@
     dialog.setAttribute("aria-modal", "true");
     dialog.setAttribute("aria-label", "Window tabs");
     dialog.tabIndex = -1;
-    dialog.style.cssText = "box-sizing:border-box;width:960px;max-width:100%;max-height:90vh;padding:24px;border-radius:16px;background:#191d26;color:#c6d6ec;font:16px/1.6 ui-monospace,monospace;box-shadow:0 16px 64px #0006;outline:none;text-align:left;color-scheme:dark;";
+    dialog.style.cssText = "box-sizing:border-box;width:960px;max-width:100%;max-height:90vh;padding:24px;border:1px solid #444;border-radius:0;background:#202020;color:#e0e0e0;font:16px/1.6 system-ui,sans-serif;box-shadow:0 16px 64px #0006;outline:none;text-align:left;color-scheme:dark;";
     const title = document.createElement("h2");
     title.textContent = "Window tabs";
     title.style.cssText = "margin:0;font:inherit;font-size:24px;";
     const caption = document.createElement("p");
     caption.textContent = "j/k or ↑/↓ select · J/K move 5 · gg/G first/last · r random · u undo random · / search · Enter jump · Esc close";
-    caption.style.cssText = "margin:8px 0 16px;color:#94a3b8;";
+    caption.style.cssText = "margin:8px 0 16px;color:#999;";
     const search = document.createElement("input");
     search.type = "search";
     search.hidden = true;
     search.placeholder = "Search tabs…";
     search.setAttribute("aria-label", "Search tabs");
-    search.style.cssText = "box-sizing:border-box;width:100%;padding:12px;margin-bottom:12px;border:0;border-radius:8px;background:#252e3d;color:#c6d6ec;font:inherit;";
+    search.style.cssText = "box-sizing:border-box;width:100%;padding:12px;margin-bottom:12px;border:1px solid #444;border-radius:0;background:#2b2b2b;color:#e0e0e0;font:inherit;";
     const list = document.createElement("div");
     list.setAttribute("role", "listbox");
     list.setAttribute("aria-label", "Tabs");
@@ -775,7 +781,7 @@
     const below = document.createElement("div");
     above.setAttribute("aria-label", "Tabs above the visible list");
     below.setAttribute("aria-label", "Tabs below the visible list");
-    above.style.cssText = below.style.cssText = "text-align:center;color:#94a3b8;font-size:13px;padding:4px;";
+    above.style.cssText = below.style.cssText = "text-align:center;color:#999;font-size:13px;padding:4px;";
     dialog.append(title, caption, search, above, list, below);
     overlay.appendChild(dialog);
     const session = { overlay, dialog, search, list, above, below, rows: [], tabs: [], filtered: [], selectedIndex: 0, pendingGAt: null, randomRecent: [], randomUndo: [], loading: true, jumping: false, previousFocus: document.activeElement };
@@ -834,10 +840,17 @@
       undoRandomTabPreview();
     } else if (event.key === "Escape") {
       event.preventDefault();
-      closeTabPicker();
+      if (!session.search.hidden) {
+        session.search.hidden = true;
+        renderTabPicker();
+        session.dialog.focus({ preventScroll: true });
+      } else {
+        closeTabPicker();
+      }
     } else if (event.key === "/" && !searching && !modified) {
       event.preventDefault();
       session.search.hidden = false;
+      renderTabPicker();
       session.search.focus({ preventScroll: true });
     } else if (!modified && (event.key === "ArrowDown" || event.key === "ArrowUp" || (!searching && ["j", "k", "J", "K"].includes(event.key)))) {
       event.preventDefault();
