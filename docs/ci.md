@@ -1,8 +1,11 @@
 # Signed Firefox releases
 
-## Local flow
+Publishing runs only through GitHub Actions. Local tooling prepares release
+commits and tags; it does not sign or publish packages.
 
-Run `ror release` (or `./tools/release.sh`; `./release` is a compatibility wrapper).
+## Local release preparation
+
+Run `ror release` (or `./tools/release.sh`).
 Requirements: Bash, Git, Python 3, zip, a clean working tree, and a named branch.
 
 For `X.Y.Z-snapshot`, the script:
@@ -36,8 +39,10 @@ In repository **Actions secrets**, set:
 - `AMO_JWT_SECRET`: AMO developer API secret.
 
 Generate these in the Firefox Add-on Developer Hub. Never commit them or enable
-shell tracing for signing. Local `./publish X.Y.Z` supports `.env` / `.env.local`;
-CI ignores these files. Source packaging excludes dotenv files.
+shell tracing for signing. `tools/publish.sh X.Y.Z` is the CI signing helper:
+it requires exactly one numeric release version and credentials injected through
+the environment. It does not load local credential files or offer interactive
+package selection. Source packaging still excludes local credential files.
 
 The workflow requests `contents: write` for `GITHUB_TOKEN`: needed for GitHub
 Releases and pushing `updates`. No PAT is needed. Repository/organization
@@ -50,7 +55,8 @@ AMO credentials must be authorized for `navbro@dector.space`.
 `.github/workflows/release.yml` runs on `v*` tag pushes. It checks out the tagged
 commit, validates exact tag/version alignment (numeric `X.Y.Z` only), checks
 secrets/tools, runs tests, builds, and signs through pinned `web-ext` using the
-**unlisted** channel. CI does not require `fzf`. Missing tools/secrets, signing
+**unlisted** channel. Signing selects only `dist/navbro-X.Y.Z.xpi` and verifies
+its manifest version. Missing tools/secrets, signing
 failure, or absent signed output are errors, not successful skips.
 
 Only the **signed** `navbro-X.Y.Z-signed.xpi` is uploaded to the GitHub Release.
@@ -100,7 +106,7 @@ pipeline does not submit `sources.zip` automatically.
 ## Checks
 
 ```sh
-bash -n release publish build tools/*.sh
+bash -n build tools/*.sh
 node --test tests/*.test.cjs
 ./build
 ```

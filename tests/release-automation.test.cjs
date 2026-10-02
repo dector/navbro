@@ -95,19 +95,38 @@ test('updates branch is bootstrapped; numeric versions prevent rollback; unrelat
   assert.equal(run(dir, 'git', ['branch', '--show-current']), 'main');
 });
 
-test('CI publish fails loudly when credentials are missing', t => {
+test('CI publish requires exactly one numeric release version', t => {
+  const dir = fixture(t);
+  for (const args of [[], [''], ['v1.2.3'], ['1.2.3-snapshot'], ['1.2'], ['1.2.3', 'extra']]) {
+    const result = spawnSync('bash', ['tools/publish.sh', ...args], {
+      cwd: dir, encoding: 'utf8', env: { ...process.env, CI: '' },
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Usage: tools\/publish.sh <release-version>|Expected release version x.y.z/);
+  }
+});
+
+test('CI publish ignores local credential files and fails when either credential is missing', t => {
   const dir = fixture(t);
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(bin, 'web-ext'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
-  const result = spawnSync('bash', ['tools/publish.sh', '1.0.0'], {
-    cwd: dir, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, CI: 'true', AMO_JWT_ISSUER: '', AMO_JWT_SECRET: '' },
-  });
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /AMO_JWT_ISSUER and AMO_JWT_SECRET are required/);
+  for (const name of ['.env', '.env.local']) {
+    fs.writeFileSync(path.join(dir, name), 'touch dotenv-loaded\nAMO_JWT_ISSUER=local-key\nAMO_JWT_SECRET=local-secret\n');
+  }
+  for (const ci of ['true', '']) {
+    for (const [issuer, secret] of [['', ''], ['fake-key', ''], ['', 'fake-secret']]) {
+      const result = spawnSync('bash', ['tools/publish.sh', '1.0.0'], {
+        cwd: dir, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, CI: ci, AMO_JWT_ISSUER: issuer, AMO_JWT_SECRET: secret },
+      });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /AMO_JWT_ISSUER and AMO_JWT_SECRET are required/);
+      assert.ok(!fs.existsSync(path.join(dir, 'dotenv-loaded')));
+    }
+  }
 });
 
-test('CI publish selects exact version without fzf and keeps signed package', t => {
+test('CI publish selects exact version, rejects missing/mismatched packages, and keeps signed package', t => {
   const dir = fixture(t);
   manifest(dir, '1.2.3');
   fs.mkdirSync(path.join(dir, 'dist'));
@@ -126,9 +145,19 @@ with zipfile.ZipFile(artifacts + '/signed.xpi', 'w') as z:
     z.write(source + '/manifest.json', 'manifest.json')
     z.writestr('META-INF/mozilla.rsa', 'mock signature')
 `, { mode: 0o755 });
-  const output = run(dir, 'bash', ['tools/publish.sh', '1.2.3'], {
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, CI: 'true', AMO_JWT_ISSUER: 'fake-key', AMO_JWT_SECRET: 'fake-secret' },
-  });
+  // A newer archive must not affect explicit version selection.
+  manifest(dir, '9.0.0');
+  run(dir, 'zip', ['-q', 'dist/navbro-9.0.0.xpi', 'manifest.json']);
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}`, CI: 'true', AMO_JWT_ISSUER: 'fake-key', AMO_JWT_SECRET: 'fake-secret' };
+  const missing = spawnSync('bash', ['tools/publish.sh', '1.2.4'], { cwd: dir, encoding: 'utf8', env });
+  assert.notEqual(missing.status, 0);
+  assert.match(missing.stderr, /Unsigned package not found: .*navbro-1.2.4.xpi/);
+  fs.copyFileSync(path.join(dir, 'dist/navbro-9.0.0.xpi'), path.join(dir, 'dist/navbro-1.2.4.xpi'));
+  const mismatch = spawnSync('bash', ['tools/publish.sh', '1.2.4'], { cwd: dir, encoding: 'utf8', env });
+  assert.notEqual(mismatch.status, 0);
+  assert.match(mismatch.stderr, /Package version does not match requested release/);
+  assert.ok(!fs.existsSync(path.join(dir, 'dist/navbro-1.2.4-signed.xpi')));
+  const output = run(dir, 'bash', ['tools/publish.sh', '1.2.3'], { env });
   assert.ok(fs.existsSync(path.join(dir, 'dist/navbro-1.2.3-signed.xpi')));
   assert.doesNotMatch(output, /fake-secret/);
 });
