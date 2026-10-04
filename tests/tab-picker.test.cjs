@@ -143,6 +143,22 @@ test("closing during load never resurrects picker; repeated opens are ignored", 
   assert.equal(api.STATE.tabPickerSession, null);
 });
 
+test("picker list keeps a constant size by padding empty rows", async () => {
+  const api = setup();
+  await api.startTabPicker();
+  const session = api.STATE.tabPickerSession;
+  assert.match(session.list.style.cssText, /height:min\(55vh,520px\)/);
+  assert.equal(session.list.children.length, 3);
+  session.search.hidden = false;
+  session.search.value = "Other";
+  session.search.input();
+  assert.equal(session.filtered.length, 1);
+  assert.equal(session.rows.length, 1);
+  assert.equal(session.list.children.length, 3);
+  const fillers = session.list.children.filter((child) => child["aria-hidden"] === "true");
+  assert.equal(fillers.length, 2);
+});
+
 function manyTabs(activeIndex) {
   return setup(async () => ({ tabs: Array.from({ length: 9 }, (_, index) => ({
     id: index + 1, title: `Tab ${index + 1}`, url: `https://tab${index + 1}.test`, active: index === activeIndex,

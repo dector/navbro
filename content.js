@@ -729,6 +729,21 @@
     session.below.textContent = `↓ ${below}`;
   };
 
+  // Fill the remaining visible slots with empty, non-selectable rows so the
+  // dialog keeps the same size when the tab count (or filter result) shrinks.
+  const padTabPickerRows = (rowHeight) => {
+    const session = STATE.tabPickerSession;
+    if (!session) return;
+    const height = rowHeight || 60;
+    const slots = Math.floor((session.list.clientHeight || 0) / height);
+    while (session.list.children.length < slots) {
+      const filler = document.createElement("div");
+      filler.setAttribute("aria-hidden", "true");
+      filler.style.cssText = `box-sizing:border-box;height:${height}px;padding:8px 12px;border-radius:0;`;
+      session.list.appendChild(filler);
+    }
+  };
+
   const renderTabPicker = () => {
     const session = STATE.tabPickerSession;
     if (!session) return;
@@ -739,6 +754,7 @@
     session.rows = [];
     if (!session.filtered.length) {
       session.list.textContent = session.loading ? "Loading tabs…" : "No matching tabs.";
+      padTabPickerRows();
       updateTabPickerCounts();
       return;
     }
@@ -749,14 +765,15 @@
       row.style.cssText = `padding:8px 12px;border-radius:0;overflow-wrap:anywhere;background:${index === session.selectedIndex ? "#353535" : "transparent"};`;
       const pageTitle = document.createElement("div");
       pageTitle.textContent = `${tab.active ? "* " : ""}${tab.title || "(untitled)"}`;
-      pageTitle.style.cssText = "font:16px/1.5 system-ui,sans-serif;color:#e0e0e0;";
+      pageTitle.style.cssText = "font:16px/1.5 system-ui,sans-serif;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
       const url = document.createElement("div");
       url.textContent = tab.url || "";
-      url.style.cssText = "font:13px/1.5 ui-monospace,monospace;color:#999;";
+      url.style.cssText = "font:13px/1.5 ui-monospace,monospace;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
       row.append(pageTitle, url);
       session.list.appendChild(row);
       session.rows.push(row);
     });
+    padTabPickerRows(session.rows[0]?.offsetHeight);
     const selected = session.rows[session.selectedIndex];
     const centeredTop = selected.offsetTop + selected.offsetHeight / 2 - session.list.clientHeight / 2;
     session.list.scrollTop = Math.max(0, Math.min(centeredTop, session.list.scrollHeight - session.list.clientHeight));
@@ -822,7 +839,7 @@
     const list = document.createElement("div");
     list.setAttribute("role", "listbox");
     list.setAttribute("aria-label", "Tabs");
-    list.style.cssText = "position:relative;max-height:55vh;overflow:auto;scroll-behavior:auto;";
+    list.style.cssText = "position:relative;height:min(55vh,520px);overflow:auto;scroll-behavior:auto;";
     const above = document.createElement("div");
     const below = document.createElement("div");
     above.setAttribute("aria-label", "Tabs above the visible list");
